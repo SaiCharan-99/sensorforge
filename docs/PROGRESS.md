@@ -35,7 +35,7 @@ Cut order if behind: Laya → RelateAnything → local LLM → HandoverProof →
 ## Phase 2: Fri night: CrashGuard + real training
 - [x] IMU capture (accel + gyro + rotation vector @ ~100 Hz, 20 s ring buffer): `sdk/detect/` (`ImuSample`, `SensorObservation`, `ImuRingBuffer`, pure) + `sdk/sensors/AndroidImuSource`; measured on iQOO: 100.0 Hz on all 3 channels, buffer caps at 20.0 s / ~6000 samples (logcat tag `SF.IMU`)
 - [x] Window features (3 s, hop 0.5 s, ~32–64 dims): `sdk/detect/WindowFeatures` (36 dims, names in `NAMES`; null = NOT_OBSERVABLE when a channel is missing or below half rate); 8 JVM tests; on iQOO at rest acc_max 1.01 g, 10–18 ms/window (debug build, CPU, main thread)
-- [ ] Kotlin head training (H3) + proof artifacts (`training.json`, hash before/after)
+- [x] Kotlin head training (H3) + proof artifacts (`training.json`, hash before/after): `sdk/train/HeadTrainer` (logistic or 2-layer MLP, Adam, L2, clip, early stop, seeded, session split), `HeadStore` (immutable `v<n>`, explicit promote/rollback), `sdk/detect/ImuDataset` + `RecordingStore`; 12 synthetic impact replays `fixtures/imu/impact_*.csv` (SIMULATION, `gen_impacts.py`); studio-app S10 model card (record normal/shake/drop, held-out toggle, Train, loss curve, HashCard, held-out metrics, approve/rollback). On device: live recording saved with LIVE provenance; Train refuses with typed error until each class has ≥ 5 dev windows. **Pending: a full 4-class train on the phone (needs a human to record shake + drop), which gives the T-C05 numbers.**
 - [ ] CrashGuard incident lifecycle + `MockIncidentTransport` + replay fixtures (labelled SIMULATION)
 
 ## Phase 3: Sat morning: camera perception + PackCheck

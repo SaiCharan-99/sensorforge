@@ -33,6 +33,8 @@ android {
     buildFeatures {
         compose = true
     }
+    // Bundle fixtures (IMU replays labelled SIMULATION, spec files) for offline use.
+    sourceSets.getByName("main").assets.directories.add("../fixtures")
 }
 
 dependencies {

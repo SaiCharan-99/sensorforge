@@ -6,29 +6,21 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
-// Set of Material typography styles to start with
+// design.md §3. Inter / JetBrains Mono are not bundled yet; system sans / monospace fallback.
+private fun style(size: Int, line: Int, weight: Int) =
+    TextStyle(fontFamily = FontFamily.Default, fontSize = size.sp, lineHeight = line.sp, fontWeight = FontWeight(weight))
+
 val Typography = Typography(
-    bodyLarge = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Normal,
-        fontSize = 16.sp,
-        lineHeight = 24.sp,
-        letterSpacing = 0.5.sp
-    )
-    /* Other default text styles to override
-    titleLarge = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Normal,
-        fontSize = 22.sp,
-        lineHeight = 28.sp,
-        letterSpacing = 0.sp
-    ),
-    labelSmall = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Medium,
-        fontSize = 11.sp,
-        lineHeight = 16.sp,
-        letterSpacing = 0.5.sp
-    )
-    */
+    headlineLarge = style(28, 36, 600),
+    headlineMedium = style(22, 28, 600),
+    titleMedium = style(18, 24, 600),
+    titleLarge = style(22, 28, 600),
+    bodyLarge = style(16, 24, 400),
+    bodyMedium = style(14, 20, 400),
+    labelLarge = style(16, 20, 600),
+    labelMedium = style(12, 16, 600),
 )
+
+val MonoStyle = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight(500))
+val DisplayVerdict = style(40, 48, 700)
+val CountdownStyle = TextStyle(fontSize = 96.sp, fontWeight = FontWeight(700), fontFeatureSettings = "tnum")

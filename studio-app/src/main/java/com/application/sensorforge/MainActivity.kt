@@ -1,75 +1,59 @@
 package com.application.sensorforge
 
 import android.os.Bundle
-import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.viewModels
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.application.sensorforge.sdk.detect.ImuChannel
-import com.application.sensorforge.sdk.detect.ImuRingBuffer
-import com.application.sensorforge.sdk.detect.WindowFeatures
-import com.application.sensorforge.sdk.sensors.AndroidImuSource
+import com.application.sensorforge.crashguard.CrashGuardViewModel
+import com.application.sensorforge.crashguard.ModelCard
+import com.application.sensorforge.ui.SfCard
 import com.application.sensorforge.ui.theme.SensorforgeTheme
-import kotlinx.coroutines.delay
 
-/** Phase 2 slice 1: live IMU capture check (Motion Watch only, foreground). */
 class MainActivity : ComponentActivity() {
-    private val buffer = ImuRingBuffer(20.0)
-    private lateinit var imu: AndroidImuSource
+    private val crashGuard: CrashGuardViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        imu = AndroidImuSource(this)
         enableEdgeToEdge()
         setContent {
             SensorforgeTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { p ->
-                    ImuCheck(buffer, imu.missingChannels, Modifier.padding(p).padding(16.dp))
+                Scaffold(modifier = Modifier.fillMaxSize(), containerColor = MaterialTheme.colorScheme.background) { p ->
+                    val model by crashGuard.modelUi.collectAsState()
+                    val live by crashGuard.live.collectAsState()
+                    Column(
+                        Modifier.padding(p).verticalScroll(rememberScrollState()).padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Text("CrashGuard", style = MaterialTheme.typography.headlineLarge)
+                        SfCard {
+                            Text("Motion sensors only, camera and mic off", style = MaterialTheme.typography.bodyLarge)
+                            Text(
+                                "LIVE  accel %.0f Hz · gyro %.0f Hz · rotation %.0f Hz".format(live.accelHz, live.gyroHz, live.rotHz),
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                            if (live.missing.isNotEmpty()) Text("CapabilityMissing: ${live.missing}")
+                        }
+                        ModelCard(model, crashGuard)
+                    }
                 }
             }
         }
     }
 
-    override fun onResume() { super.onResume(); imu.start(buffer::add) }
-    override fun onPause() { imu.stop(); buffer.clear(); super.onPause() }
-}
-
-@Composable
-fun ImuCheck(buffer: ImuRingBuffer, missing: List<ImuChannel>, modifier: Modifier = Modifier) {
-    var text by remember { mutableStateOf("") }
-    LaunchedEffect(Unit) {
-        while (true) {
-            delay(1000)
-            val rates = ImuChannel.entries.joinToString("  ") { "%s %.1f Hz".format(it, buffer.rateHz(it)) }
-            val snap = buffer.snapshot()
-            val t0 = System.nanoTime()
-            val v = snap.maxOfOrNull { it.tNanos }?.let { WindowFeatures.compute(snap, it, 3.0, 100) }
-            val ms = (System.nanoTime() - t0) / 1e6
-            val feats = if (v == null) "features NOT_OBSERVABLE" else
-                "features %dd in %.2f ms (cpu)  acc_max %.2f g  gyro_max %.0f dps".format(
-                    v.size, ms, v[WindowFeatures.NAMES.indexOf("acc_g_max")], v[WindowFeatures.NAMES.indexOf("gyro_dps_max")])
-            val line = "LIVE  $rates  buffer %.1f s / %d samples\n$feats".format(buffer.spanSeconds(), buffer.size())
-            Log.i("SF.IMU", line)
-            text = line
-        }
-    }
-    Column(modifier) {
-        Text("Motion Watch: IMU check", style = MaterialTheme.typography.titleLarge)
-        Text(text)
-        if (missing.isNotEmpty()) Text("Missing sensors: $missing")
-    }
+    override fun onResume() { super.onResume(); crashGuard.onVisible() }
+    override fun onPause() { crashGuard.onHidden(); super.onPause() }
 }
