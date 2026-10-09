@@ -53,6 +53,7 @@ internal class CameraVerifier(
     /** Identity head (H1) on crop embeddings, if one is approved. */
     private val identityHead: Head?,
     private val outDir: File,
+    private val params: Map<String, List<String>> = emptyMap(),
 ) : Verifier {
     private val events = MutableSharedFlow<VerifierEvent>(extraBufferCapacity = 64, onBufferOverflow = BufferOverflow.DROP_OLDEST)
     private var executor: ExecutorService? = null
@@ -61,6 +62,8 @@ internal class CameraVerifier(
     private var onResult: ((VerifierResult) -> Unit)? = null
     private val evidence = mutableMapOf<Long, String>()
     @Volatile private var running = false
+    private var startNs = 0L
+    private var startUtcMs = 0L
 
     override fun events(): Flow<VerifierEvent> = events.asSharedFlow()
 
@@ -82,6 +85,7 @@ internal class CameraVerifier(
         val exec = Executors.newSingleThreadExecutor().also { executor = it }
         previewView.scaleType = PreviewView.ScaleType.FIT_CENTER
         running = true
+        startNs = SystemClock.elapsedRealtimeNanos(); startUtcMs = System.currentTimeMillis()
 
         val selector = ResolutionSelector.Builder()
             .setAspectRatioStrategy(AspectRatioStrategy.RATIO_16_9_FALLBACK_AUTO_STRATEGY)
@@ -130,7 +134,7 @@ internal class CameraVerifier(
                 }
                 if (b.nowS - lastLive >= 1.0) {
                     lastLive = b.nowS
-                    val live = VerifyEngine.evaluate(spec, b.timeline())
+                    val live = VerifyEngine.evaluate(spec, b.timeline().copy(startUtcMs = startUtcMs), params = params)
                     events.tryEmit(VerifierEvent.Live(live, coach.activeStep(live)?.id, b.nowS))
                     coach.check(live, b.nowS) { b.lastObservableAt(it) }?.let {
                         Log.i(TAG, "coaching ${it.stepId}: ${it.message}")
@@ -162,13 +166,21 @@ internal class CameraVerifier(
         exec.shutdown()
         exec.awaitTermination(2, TimeUnit.SECONDS)
         val b = builder ?: return
-        val timeline: Timeline = b.timeline(close = true)
-        val decision = VerifyEngine.evaluate(spec, timeline, pack.perceptionStack)
+        val timeline: Timeline = b.timeline(close = true).copy(startUtcMs = startUtcMs)
+        val decision = try { VerifyEngine.evaluate(spec, timeline, pack.perceptionStack, params) } catch (e: com.application.sensorforge.sdk.contracts.ContractException) {
+            Log.e(TAG, "contract error at stop: ${e.message}")
+            com.application.sensorforge.sdk.engine.Decision(com.application.sensorforge.sdk.engine.Verdict.UNVERIFIED, emptyList(), spec.steps.map { com.application.sensorforge.sdk.engine.StepResult(it.id, com.application.sensorforge.sdk.engine.StepStatus.NOT_OBSERVABLE, it.required) })
+        }
         val dir = File(outDir, timeline.clipId).apply { mkdirs() }
-        File(dir, "timeline.json").writeText(Contracts.json.encodeToString(Timeline.serializer(), timeline))
+        val timelineText = Contracts.json.encodeToString(Timeline.serializer(), timeline)
+        File(dir, "timeline.json").writeText(timelineText)
+        val receipt = com.application.sensorforge.sdk.runtime.ReceiptWriter.write(
+            dir, pack.id, pack.version, pack.sha256, pack.perceptionStack, params.mapValues { it.value.joinToString(",") },
+            decision, timelineText, SystemClock.elapsedRealtimeNanos() - startNs, simulation = false,
+        )
         Log.i(TAG, "stop ${timeline.clipId}: ${decision.verdict} ${decision.reasons.map { "${it.code}:${it.ref}" }} " +
             "(${timeline.primitives.size} primitives, ${timeline.tracks.size} tracks, ${"%.1f".format(timeline.durationS)} s)")
-        onResult?.invoke(VerifierResult(decision.verdict, decision.reasons, decision.steps, timeline, evidence.toMap()))
+        onResult?.invoke(VerifierResult(decision.verdict, decision.reasons, decision.steps, timeline, evidence.toMap(), receipt.absolutePath))
     }
 
     private fun classify(head: Head?, d: Detection, f: TagFrameReader.Frame): Detection {

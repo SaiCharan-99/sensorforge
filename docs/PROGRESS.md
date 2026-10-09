@@ -3,7 +3,7 @@
 Phases 0–3 followed tech spec §30. From Phase 4 the plan is **build-first** (user decision, see "Build-first plan"): build every feature and model slot (4–9), then data, training and acceptance (10), then rehearsal (11).
 If time runs out, the spec's cut order still applies: Laya → RelateAnything → local LLM → HandoverProof → RepRight.
 
-**Current stage:** Stage A (build), A1 done (registry UI row in S17 comes with A4); next milestone A2. Runbook: `docs/WORKFLOW.md`, trigger `build all`.
+**Current stage:** Stage A (build), A1, A2 done; next milestone A3. Runbook: `docs/WORKFLOW.md`, trigger `build all`.
 **Last updated:** 2026-10-10
 
 ## Session handoff (read this first in a new session)
@@ -179,6 +179,11 @@ _Filled during the run._
 ## A1 log
 - `AFTER_PARAM` in contracts/validator/expander/engine + `fixtures/specs/sealsafe.spec.json` + `SealSafeSpecTest` (8 tests).
 - `sdk/models/ModelCatalog` (pure: all model-stack slots, hashes, licences, fallbacks, `models.lock`, fail-closed `check`), `sdk/runtime/ModelRegistry` (live status per slot), `BackendLog` (JSONL, summaries, airplane flag), detector wired to it.
+
+## A2 log
+- `sdk/pack`: `Canonical` JSON + sha256, `Pack.build/open` (.sfpkg zip; pack_sha256 over canonical entries; fail-closed `PerceptionStackMismatch` on models.lock mismatch; `PackIntegrityError`), `Receipts.create/verify` (canonical, tamper = invalid). 12 JVM tests in `PackReceiptTest`.
+- `SensorForge.load()` now takes `.sfpkg` or spec JSON; `CameraVerifier` writes `receipt.json` and sets `receiptPath`; `SensorForge.readReceipt`; S16 `ReceiptView` shown from PackCheck result.
+- Export UI + Sharesheet come with A3 (Forge Export step).
 
 ## Blockers
 - SealSafe needs `state_change AFTER param start_time` (tech spec Part F) but §6 defines no AFTER/param constraint. Proposed `AFTER_PARAM` in Phase 4; the user must confirm.

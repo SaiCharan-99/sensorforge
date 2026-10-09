@@ -6,6 +6,7 @@ import com.application.sensorforge.sdk.contracts.Contracts
 import com.application.sensorforge.sdk.contracts.SpecExpander
 import com.application.sensorforge.sdk.contracts.Validator
 import com.application.sensorforge.sdk.perception.Tags
+import com.application.sensorforge.sdk.runtime.PackSource
 import com.application.sensorforge.sdk.train.Head
 import com.application.sensorforge.sdk.train.HeadStore
 import java.io.File
@@ -26,9 +27,8 @@ object SensorForge {
 
     fun load(context: Context, packPath: String, params: Map<String, Any> = emptyMap()): Verifier {
         val app = context.applicationContext
-        val bytes = if (packPath.startsWith("asset:")) app.assets.open(packPath.removePrefix("asset:")).use { it.readBytes() }
-        else File(packPath).readBytes()
-        val raw = Contracts.parseProcedure(bytes.decodeToString())
+        val resolved = PackSource.resolve(app, packPath)
+        val raw = Contracts.parseProcedure(resolved.specText)
         Validator.requireValid(raw)
         val lists = params.mapValues { (_, v) -> (v as? List<*>)?.map { it.toString() } ?: listOf(v.toString()) }
         val spec = SpecExpander.expand(raw, lists)
@@ -36,12 +36,26 @@ object SensorForge {
 
         val needsCamera = spec.entities.isNotEmpty()
         if (!needsCamera) throw CapabilityMissing("Only camera verify packs are supported by load() so far")
-        val head = if (spec.entities.any { it.head == "identity" }) activeHead(app, identityHeadId(spec.procedureId)) else null
+        val head = if (spec.entities.any { it.head == "identity" }) resolved.heads().values.firstOrNull() ?: activeHead(app, identityHeadId(spec.procedureId)) else null
         val info = PackInfo(
             id = spec.procedureId, version = spec.version, mode = spec.mode,
-            sha256 = sha256(bytes), perceptionStack = Tags.STACK, stepIds = spec.steps.map { it.id },
+            sha256 = resolved.sha256, perceptionStack = Tags.STACK, stepIds = spec.steps.map { it.id },
         )
-        return CameraVerifier(context, spec, info, head, File(app.filesDir, "verify/${spec.procedureId}"))
+        return CameraVerifier(context, spec, info, head, File(app.filesDir, "verify/${spec.procedureId}"), lists)
+    }
+
+    /** Receipt (tech spec §24) read back from disk: fields for S16 and the recomputed validity. */
+    data class ReceiptView(val fields: List<Pair<String, String>>, val verification: com.application.sensorforge.sdk.pack.ReceiptVerification, val json: String)
+
+    /** Verifies `receipt.json` (and the neighbouring `timeline.json`, if present) from the stored bytes. */
+    fun readReceipt(path: String): ReceiptView {
+        val f = File(path)
+        val json = f.readText()
+        val tl = File(f.parentFile, "timeline.json").takeIf { it.exists() }?.readText()
+        return ReceiptView(
+            runCatching { com.application.sensorforge.sdk.pack.Receipts.fields(json) }.getOrDefault(emptyList()),
+            com.application.sensorforge.sdk.pack.Receipts.verify(json, tl), json,
+        )
     }
 
     /** Identity head (H1) authoring for a procedure: capture labelled crops, train, approve. */

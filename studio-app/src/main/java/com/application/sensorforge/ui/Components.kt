@@ -22,6 +22,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
@@ -164,3 +166,26 @@ fun SecondaryButton(text: String, enabled: Boolean = true, modifier: Modifier = 
         border = androidx.compose.foundation.BorderStroke(1.dp, OutlineStrong),
         colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary),
     ) { Text(text, style = MaterialTheme.typography.labelLarge) }
+
+/** S16: receipt fields in monospace plus "Verify receipt" → valid / invalid, recomputed from disk. */
+@Composable
+fun ReceiptView(path: String?, onBack: (() -> Unit)? = null) {
+    var verified by androidx.compose.runtime.remember(path) { androidx.compose.runtime.mutableStateOf<com.application.sensorforge.sdk.SensorForge.ReceiptView?>(null) }
+    var checked by androidx.compose.runtime.remember(path) { androidx.compose.runtime.mutableStateOf(false) }
+    val c = SfTheme.colors
+    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text("Evidence receipt", style = MaterialTheme.typography.headlineLarge)
+        if (path == null || !java.io.File(path).exists()) {
+            SfCard { Text("No receipt for this run.", style = MaterialTheme.typography.bodyLarge) }
+        } else {
+            val r = androidx.compose.runtime.remember(path) { com.application.sensorforge.sdk.SensorForge.readReceipt(path) }
+            SfCard { r.fields.forEach { (k, v) -> Text("$k: $v", style = MonoStyle) } }
+            PrimaryButton("Verify receipt") { verified = com.application.sensorforge.sdk.SensorForge.readReceipt(path); checked = true }
+            if (checked) verified?.let {
+                val ok = it.verification.valid
+                StatusChip(it.verification.label + (it.verification.reason?.let { m -> ": $m" } ?: ""), if (ok) c.pass else c.fail, if (ok) "✓" else "✕")
+            }
+        }
+        onBack?.let { SecondaryButton("Back", onClick = it) }
+    }
+}

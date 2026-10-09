@@ -241,8 +241,10 @@ private fun ResultScreen(r: VerifierResult, vm: PackCheckViewModel) {
             Text("Timeline", style = MaterialTheme.typography.titleMedium)
             Text("${r.timeline.clipId} · ${r.timeline.perceptionStack}", style = MonoStyle)
             Text("%.1f s · %d tracks · %d primitives".format(r.timeline.durationS, r.timeline.tracks.size, r.timeline.primitives.size), style = MonoStyle)
-            Text("Receipt: added in Phase 4", style = MonoStyle)
         }
+        var showReceipt by remember { mutableStateOf(false) }
+        SecondaryButton(if (showReceipt) "Hide receipt" else "View receipt") { showReceipt = !showReceipt }
+        if (showReceipt) com.application.sensorforge.ui.ReceiptView(r.receiptPath)
         PrimaryButton("New check") { vm.reset() }
     }
 }
