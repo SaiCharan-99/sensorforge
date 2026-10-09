@@ -1,0 +1,12 @@
+{
+  "schema_version": "3.0",
+  "procedure_id": "crashguard",
+  "version": 2,
+  "mode": "detect",
+  "window": { "length_s": 3.0, "hop_s": 0.5, "imu_hz": 100 },
+  "gate": { "accel_peak_g": 3.0, "gyro_peak_dps": 300 },
+  "head": { "id": "imu_risk", "positive_class": "impact_like", "min_prob": 0.8 },
+  "corroboration": { "post_event_stillness_s": 2.0, "stillness_max_g_std": 0.08 },
+  "incident": { "countdown_s": 15, "auto_escalate": false, "transport": "mock" },
+  "evidence": { "imu_ring_buffer_s": 20, "location": "last_fix_with_accuracy" }
+}

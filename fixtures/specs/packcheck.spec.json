@@ -1,0 +1,29 @@
+{
+  "schema_version": "3.0",
+  "procedure_id": "packcheck",
+  "version": 3,
+  "parameters": { "items": { "type": "list<code>", "source": "host_app", "optional": true } },
+  "entities": [
+    { "id": "box", "cls": "box", "identity_policy": "track_continuity" },
+    { "id": "charger", "cls": "charger", "identity_policy": "track_continuity", "head": "identity" },
+    { "id": "adapter", "cls": "adapter", "identity_policy": "code_required", "expected_code": "AD-42" }
+  ],
+  "steps": [
+    { "id": "box_opened", "primitive": "state_change", "entity": "box", "state": "open", "observe_target": "box" },
+    { "id": "charger_out", "primitive": "exits_container", "entity": "charger", "container": "box", "observe_target": "box" },
+    { "id": "adapter_out", "primitive": "exits_container", "entity": "adapter", "container": "box", "observe_target": "box" },
+    { "id": "adapter_label", "primitive": "code_read", "entity": "adapter", "observe_target": "adapter" },
+    { "id": "box_empty", "primitive": "region_empty", "zone": "box_interior", "observe_target": "zone:box_interior" }
+  ],
+  "constraints": [
+    { "type": "BEFORE", "a": "box_opened", "b": "charger_out", "source": "induced" },
+    { "type": "ANY_ORDER", "steps": ["charger_out", "adapter_out"], "source": "induced" },
+    { "type": "SAME_IDENTITY", "a": "adapter_out", "b": "adapter_label", "source": "developer" },
+    { "type": "BEFORE", "a": "adapter_out", "b": "box_empty" }
+  ],
+  "prohibited": [
+    { "type": "MAX_INSTANCES", "entity": "adapter", "max": 1 },
+    { "type": "FORBIDDEN_CLASS", "cls": "impostor_cable", "min_confidence": 0.8 }
+  ],
+  "policy": { "min_observable_coverage": 0.9, "unexplained_change_blocks_pass": true, "coaching_timeout_s": 3 }
+}
