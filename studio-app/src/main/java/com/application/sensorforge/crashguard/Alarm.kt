@@ -4,11 +4,8 @@ import android.content.Context
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
 import android.media.AudioAttributes
-import android.media.AudioManager
-import android.media.Ringtone
-import android.media.RingtoneManager
-import android.media.ToneGenerator
-import android.os.Build
+import android.media.AudioFormat
+import android.media.AudioTrack
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.util.Log
@@ -17,10 +14,12 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlin.math.PI
+import kotlin.math.sin
 
 /**
  * Local attention alarm for a possible impact: blinking flashlight (torch only, no camera capture,
- * no CAMERA permission), looping alarm tone on the alarm stream, repeating vibration.
+ * no CAMERA permission), high-pitch two-tone siren on the alarm stream, repeating vibration.
  * Purely on-device; it contacts no one.
  */
 class Alarm(private val context: Context, private val scope: CoroutineScope) {
@@ -30,8 +29,7 @@ class Alarm(private val context: Context, private val scope: CoroutineScope) {
         cameras.cameraIdList.firstOrNull { cameras.getCameraCharacteristics(it).get(CameraCharacteristics.FLASH_INFO_AVAILABLE) == true }
     }.getOrNull()
     private var blink: Job? = null
-    private var ringtone: Ringtone? = null
-    private var tone: ToneGenerator? = null
+    private var track: AudioTrack? = null
 
     val active get() = blink != null
     val hasTorch get() = torchId != null
@@ -60,27 +58,49 @@ class Alarm(private val context: Context, private val scope: CoroutineScope) {
         setTorch(false)
         // Torch changes are applied asynchronously; repeat "off" so a late "on" cannot leave it lit.
         scope.launch { delay(300); if (!active) setTorch(false) }
-        ringtone?.stop(); ringtone = null
-        tone?.release(); tone = null
+        track?.let { runCatching { it.stop() }; it.release() }; track = null
         runCatching { vibrator?.cancel() }
     }
 
+    /** High-pitch two-tone siren (2.8 kHz / 3.5 kHz, 0.25 s each), synthesized and looped on the alarm stream. */
     private fun startSound() {
-        val uri = RingtoneManager.getActualDefaultRingtoneUri(context, RingtoneManager.TYPE_ALARM)
-            ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
-        val r = uri?.let { runCatching { RingtoneManager.getRingtone(context, it) }.getOrNull() }
-        if (r != null) {
-            r.audioAttributes = AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_ALARM)
-                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+        val pcm = siren()
+        val t = runCatching {
+            AudioTrack.Builder()
+                .setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_ALARM)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .build(),
+                )
+                .setAudioFormat(
+                    AudioFormat.Builder()
+                        .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                        .setSampleRate(SAMPLE_RATE)
+                        .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
+                        .build(),
+                )
+                .setTransferMode(AudioTrack.MODE_STATIC)
+                .setBufferSizeInBytes(pcm.size * 2)
                 .build()
-            if (Build.VERSION.SDK_INT >= 28) r.isLooping = true
-            r.play()
-            ringtone = r
-        } else {
-            // No alarm sound configured: fall back to a generated tone on the alarm stream.
-            tone = runCatching { ToneGenerator(AudioManager.STREAM_ALARM, 100) }.getOrNull()
-                ?.also { it.startTone(ToneGenerator.TONE_CDMA_EMERGENCY_RINGBACK) }
+                .apply {
+                    write(pcm, 0, pcm.size)
+                    setLoopPoints(0, pcm.size, -1)
+                    play()
+                }
+        }.onFailure { Log.w(TAG, "siren failed: $it") }.getOrNull()
+        track = t
+        Log.i(TAG, "siren ${if (t != null) "playing" else "unavailable"} (%d / %d Hz)".format(LOW_HZ, HIGH_HZ))
+    }
+
+    private fun siren(): ShortArray {
+        val half = SAMPLE_RATE / 4 // 0.25 s per tone
+        val fade = SAMPLE_RATE / 200 // 5 ms ramps avoid clicks at tone changes
+        return ShortArray(half * 2) { i ->
+            val hz = if (i < half) LOW_HZ else HIGH_HZ
+            val j = i % half
+            val env = minOf(1.0, j / fade.toDouble(), (half - j) / fade.toDouble())
+            (sin(2 * PI * hz * i / SAMPLE_RATE) * env * 0.95 * Short.MAX_VALUE).toInt().toShort()
         }
     }
 
@@ -89,5 +109,10 @@ class Alarm(private val context: Context, private val scope: CoroutineScope) {
         runCatching { cameras.setTorchMode(id, on) }
     }
 
-    private companion object { const val TAG = "SF.CG" }
+    private companion object {
+        const val TAG = "SF.CG"
+        const val SAMPLE_RATE = 48_000
+        const val LOW_HZ = 2_800
+        const val HIGH_HZ = 3_500
+    }
 }
