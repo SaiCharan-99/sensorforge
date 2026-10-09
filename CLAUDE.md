@@ -34,6 +34,16 @@ Working docs derived from them:
 9. No network calls in any core flow. Airplane-mode run is part of done.
 10. Before adding a model dependency: record id, source, licence, size, runtime, fallback in the model stack.
 
+## "Start phase N" shorthand
+Each phase runs in a fresh session. When the user says **"start phase N"** (or "phase N", "continue phase N"):
+1. Read `docs/PROGRESS.md`, starting with "Session handoff", then the Phase N tasks and Blockers.
+2. If a blocker affects Phase N, ask the user about it before writing code.
+3. Read the tech spec / model stack sections the Phase N tasks reference, plus `docs/build-architecture.md`. For UI work, also read `docs/ui-design.md` and `docs/design.md`.
+4. Implement the Phase N tasks one slice at a time. After every slice: compile, run `./gradlew :sf-sdk:test`, install on the device, commit, and report changed files, commands, test output, blockers and the next smallest task.
+5. At the end, tick the tasks in `PROGRESS.md`, log any decisions, update "Session handoff" for the next session, then commit and push.
+
+Do not start a T2 phase (6+) until the Phase 5 gate has passed.
+
 ## Workflow
 - Implement in build-plan order (tech spec §30, mirrored in `docs/PROGRESS.md`). Stop at the Saturday-afternoon gate until all T1 acceptance tests pass offline.
 - After every slice: compile, run tests, install on device, report changed files, commands, test output, blockers, next smallest task. Then update `docs/PROGRESS.md`.
