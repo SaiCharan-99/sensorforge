@@ -99,7 +99,7 @@ Cut order if behind: Laya → RelateAnything → local LLM → HandoverProof →
 | 2026-10-10 | Step `entity`/`container` are entity ids; matched against primitive `entity.cls` / `container` class |
 | 2026-10-10 | Manifest `created_on_device` is a boolean; detect-mode packs may not list camera/microphone |
 | 2026-10-10 | Golden timelines are synthetic fixtures, labelled as such in each file |
-| 2026-10-10 | Post-peak stillness (§18) is measured from 0.25 s after the |a| peak (`SETTLE_NANOS`) so the impact tail is excluded |
+| 2026-10-10 | Post-peak stillness (§18) is measured from 0.25 s after the acceleration-magnitude peak (`SETTLE_NANOS`) so the impact tail is excluded |
 
 ## Blockers
 - SealSafe needs `state_change AFTER param start_time` (tech spec Part F) but §6 defines no AFTER/param constraint. Schema addition needed before Phase 4.
