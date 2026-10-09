@@ -22,5 +22,10 @@ android {
 dependencies {
     api(libs.kotlinx.serialization.json)
     api(libs.kotlinx.coroutines.core)
+    implementation(libs.camerax.core)
+    implementation(libs.camerax.lifecycle)
+    api(libs.camerax.view)
+    implementation(libs.zxing.core)
+    implementation(libs.androidx.lifecycle.runtime.ktx)
     testImplementation(libs.junit)
 }

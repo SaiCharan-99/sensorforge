@@ -52,6 +52,9 @@ class TimelineBuilder(
     val activeTracks: List<Tracker.TrackState> get() = tracker.active
     val nowS: Double get() = lastT ?: 0.0
 
+    val primitiveCount: Int get() = primitives.size
+    fun primitivesFrom(i: Int): List<Primitive> = primitives.subList(i, primitives.size).toList()
+
     /** Seconds since `target` was last observable (null if never). */
     fun lastObservableAt(target: String): Double? = lastSeenAt[target]
 

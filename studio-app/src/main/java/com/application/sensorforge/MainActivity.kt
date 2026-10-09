@@ -26,6 +26,8 @@ import com.application.sensorforge.crashguard.EvidenceScreen
 import com.application.sensorforge.crashguard.ModelCard
 import com.application.sensorforge.crashguard.isIncidentScreen
 import com.application.sensorforge.perception.CameraCheckCard
+import com.application.sensorforge.packcheck.PackCheckScreen
+import com.application.sensorforge.packcheck.PackCheckViewModel
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.runtime.mutableIntStateOf
@@ -36,6 +38,7 @@ import com.application.sensorforge.ui.theme.SensorforgeTheme
 
 class MainActivity : ComponentActivity() {
     private val crashGuard: CrashGuardViewModel by viewModels()
+    private val packCheck: PackCheckViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -51,13 +54,15 @@ class MainActivity : ComponentActivity() {
                         if (!inc.state.isIncidentScreen() && inc.state != IncidentState.COUNTDOWN) {
                             TabRow(selectedTabIndex = tab) {
                                 Tab(tab == 0, { tab = 0 }, text = { Text("CrashGuard") })
-                                Tab(tab == 1, { tab = 1 }, text = { Text("Camera") })
+                                Tab(tab == 1, { tab = 1 }, text = { Text("PackCheck") })
+                                Tab(tab == 2, { tab = 2 }, text = { Text("Camera") })
                             }
                         }
                         when {
                             inc.state == IncidentState.COUNTDOWN -> CountdownScreen(inc, crashGuard)
                             inc.state.isIncidentScreen() -> EvidenceScreen(inc, crashGuard)
-                            tab == 1 -> Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp)) { CameraCheckCard() }
+                            tab == 1 -> { val pc by packCheck.ui.collectAsState(); PackCheckScreen(packCheck, pc) }
+                            tab == 2 -> Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp)) { CameraCheckCard() }
                             else -> Column(
                                 Modifier.verticalScroll(rememberScrollState()).padding(16.dp),
                                 verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -75,5 +80,5 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onResume() { super.onResume(); crashGuard.onVisible() }
-    override fun onPause() { crashGuard.onHidden(); super.onPause() }
+    override fun onPause() { crashGuard.onHidden(); packCheck.onHidden(); super.onPause() }
 }

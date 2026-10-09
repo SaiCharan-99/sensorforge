@@ -87,6 +87,18 @@ Prototype (nearest-centroid) or linear softmax on M2 embeddings; Kotlin training
 
 Pose/hand/face landmarks are **MediaPipe**, not OpenCV.
 
+### As built (Phase 3, 2026-10-10)
+| Id | Built with | Source / licence / size | Runtime | Fallback / note |
+|---|---|---|---|---|
+| M1 | **Tagged props** (QR tag per prop, payload `SF1\|OBJ\|cls\|code`), the declared fallback. Claim: "controlled props" | `com.google.zxing:core:3.5.3`, Maven Central, Apache-2.0, ~550 KB | JVM, CPU | YOLOE/fine-tuned detector still needs a model file; runtime decided: LiteRT + QNN, GPU then CPU |
+| C1 zones | QR corner markers + floor marker instead of ArUco + homography (quad in image space) | same ZXing | CPU | ArUco needs OpenCV; not added |
+| C2 codes | ZXing core `QRCodeMultiReader` (Java, not zxing-cpp) | same | CPU | none |
+| C3 tracker | Greedy per-class association, constant-velocity alpha-beta filter (fixed-gain Kalman), code-proven re-id | in repo | CPU | none |
+| quality | Mean luma + Laplacian variance (subsampled); frame gap > 0.5 s | in repo | CPU | lenient thresholds (luma 25-250, var >= 8); MOG2 `unexplained_change` not built |
+| M2 | **Not integrated** (no model file). H1 uses a handcrafted 24-dim YUV histogram crop embedding (`yuv-hist-24/v1`), declared as such | in repo | CPU | MobileNet-class encoder via LiteRT when available |
+| H1 | 2-layer MLP (hidden 8) via `HeadTrainer`, classes `charger` / `impostor_cable` | trained on phone | CPU | tags decide class when no head is approved |
+
+
 ---
 
 ## 4. T2 models

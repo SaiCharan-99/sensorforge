@@ -4,7 +4,7 @@ Fill this in on the device. Every number in the pitch must come from here (model
 
 | Model | Version | Runtime | Exec provider | Backend | Input | Cold ms | Warm p50/p95 ms | Memory MB | Thermal after 5 runs | Notes |
 |---|---|---|---|---|---|---|---|---|---|---|
-| M1 detector | | | | | | | | | | |
+| M1 detector | tags-qr/zxing-3.5.3/v1 (tagged-prop fallback) | ZXing core 3.5.3 (JVM) | CPU | CPU | 1280x720 Y | n/a | 9.9 / 15.9 (no codes in view), 12.0 / 18.9 | n/a | n/a | 2026-10-10, iQOO, debug build; analysis 30-31 fps keep-latest. Live decode of real tags not yet measured |
 | M2 encoder | | | | | | | | | | |
 | H1 identity (train / infer) | | CPU | | | | | | | | |
 | H2 state (train / infer) | | CPU | | | | | | | | |
@@ -18,7 +18,7 @@ Fill this in on the device. Every number in the pitch must come from here (model
 ## Per-app end-to-end decision time
 | App | Decision time | Notes |
 |---|---|---|
-| PackCheck | | |
+| PackCheck | verdict at stop, < 1 frame | 2026-10-10: empty scene 29.2 s gives UNVERIFIED, all steps NOT_OBSERVABLE (correct). Real-prop runs pending |
 | CrashGuard | | |
 | SealSafe | | |
 | HelloForge | | |
