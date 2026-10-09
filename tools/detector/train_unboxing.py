@@ -13,7 +13,7 @@ licence (Apache-2.0 base weights) and metrics in docs/sensorforge-model-stack.md
 import json, os, random, shutil, sys, zipfile
 from collections import defaultdict
 
-CLASSES = ["box", "seal", "envelope", "phone", "cable"]
+CLASSES = ["box", "lid", "seal", "envelope", "phone", "cable", "charger"]
 
 
 def split_coco(src_dir, out_dir, val_fraction=0.2, seed=7):

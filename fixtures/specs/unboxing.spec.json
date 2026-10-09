@@ -7,7 +7,8 @@
     { "id": "seal", "cls": "seal", "identity_policy": "track_continuity", "head": "state" },
     { "id": "envelope", "cls": "envelope", "identity_policy": "track_continuity" },
     { "id": "phone", "cls": "phone", "identity_policy": "track_continuity", "head": "state" },
-    { "id": "cable", "cls": "cable", "identity_policy": "track_continuity" }
+    { "id": "cable", "cls": "cable", "identity_policy": "track_continuity" },
+    { "id": "charger", "cls": "charger", "identity_policy": "track_continuity" }
   ],
   "steps": [
     { "id": "seal_removed", "primitive": "state_change", "entity": "seal", "state": "broken", "observe_target": "box" },
@@ -15,6 +16,7 @@
     { "id": "envelope_out", "primitive": "exits_container", "entity": "envelope", "container": "box", "observe_target": "box" },
     { "id": "phone_out", "primitive": "exits_container", "entity": "phone", "container": "box", "observe_target": "box" },
     { "id": "cable_out", "primitive": "exits_container", "entity": "cable", "container": "box", "observe_target": "box" },
+    { "id": "charger_out", "primitive": "exits_container", "entity": "charger", "container": "box", "observe_target": "box" },
     { "id": "phone_unsealed", "primitive": "state_change", "entity": "phone", "state": "unsealed", "observe_target": "phone" },
     { "id": "phone_on", "primitive": "state_change", "entity": "phone", "state": "on", "observe_target": "phone" }
   ],
@@ -23,7 +25,10 @@
     { "type": "BEFORE", "a": "box_opened", "b": "envelope_out", "source": "developer" },
     { "type": "BEFORE", "a": "envelope_out", "b": "phone_out", "source": "developer" },
     { "type": "BEFORE", "a": "phone_out", "b": "cable_out", "source": "developer" },
+    { "type": "BEFORE", "a": "phone_out", "b": "charger_out", "source": "developer" },
+    { "type": "ANY_ORDER", "steps": ["cable_out", "charger_out"], "source": "developer" },
     { "type": "BEFORE", "a": "cable_out", "b": "phone_unsealed", "source": "developer" },
+    { "type": "BEFORE", "a": "charger_out", "b": "phone_unsealed", "source": "developer" },
     { "type": "BEFORE", "a": "phone_unsealed", "b": "phone_on", "source": "developer" }
   ],
   "prohibited": [

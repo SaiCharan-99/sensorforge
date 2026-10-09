@@ -1,6 +1,6 @@
 # Unboxing detector: capture → label → train → ship
 
-Classes: `box`, `seal`, `envelope`, `phone`, `cable` (spec: `fixtures/specs/unboxing.spec.json`).
+Classes: `box`, `lid`, `seal`, `envelope`, `phone`, `cable`, `charger` (spec: `fixtures/specs/unboxing.spec.json`).
 
 ## 1. Capture (on the iQOO)
 studio-app → **Camera** tab → **Record dataset frames** (≈3 JPEG/s, upright, 480×640).
@@ -18,7 +18,7 @@ bash tools/detector/pull_dataset.sh
 
 ## 2. Label
 Label Studio (local, `pip install label-studio`, then `label-studio`): project type *Object Detection with Bounding Boxes*,
-labels exactly `box, seal, envelope, phone, cable`. Import `dataset/images/`. Export **COCO** → `unboxing_coco.zip`.
+labels exactly `box, lid, seal, envelope, phone, cable, charger`. Import `dataset/images/`. Export **COCO** → `unboxing_coco.zip`.
 
 ## 3. Train (Google Colab, GPU)
 Upload `train_unboxing.py` and `unboxing_coco.zip`, then:

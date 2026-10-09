@@ -12,11 +12,11 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Unboxing procedure (seal → open → envelope → phone → cable → film → power on) on synthetic timelines. */
+/** Unboxing procedure (seal → open → envelope → phone → cable + charger → film → power on) on synthetic timelines. */
 class UnboxingSpecTest {
     private val spec = Contracts.parseProcedure(Fixtures.text("specs/unboxing.spec.json"))
 
-    private val tracks = listOf("box", "seal", "envelope", "phone", "cable").mapIndexed { i, c -> Track("t$i", c, "id$i", 0.0, 30.0) }
+    private val tracks = listOf("box", "seal", "envelope", "phone", "cable", "charger").mapIndexed { i, c -> Track("t$i", c, "id$i", 0.0, 30.0) }
     private fun ref(cls: String) = EntityRef(tracks.first { it.cls == cls }.trackId, cls)
 
     private fun timeline(vararg events: Pair<Double, Primitive>) = Timeline(
@@ -30,7 +30,7 @@ class UnboxingSpecTest {
 
     private val inOrder = arrayOf(
         2.0 to state("seal", "broken"), 4.0 to state("box", "open"), 6.0 to out("envelope"),
-        9.0 to out("phone"), 12.0 to out("cable"), 15.0 to state("phone", "unsealed"), 20.0 to state("phone", "on"),
+        9.0 to out("phone"), 12.0 to out("cable"), 13.0 to out("charger"), 15.0 to state("phone", "unsealed"), 20.0 to state("phone", "on"),
     )
 
     @Test fun specIsValid() = Validator.requireValid(spec)
