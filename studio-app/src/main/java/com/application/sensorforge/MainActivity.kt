@@ -14,13 +14,17 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.application.sensorforge.crashguard.ArmedCard
+import com.application.sensorforge.crashguard.CountdownScreen
 import com.application.sensorforge.crashguard.CrashGuardViewModel
+import com.application.sensorforge.crashguard.EvidenceScreen
 import com.application.sensorforge.crashguard.ModelCard
-import com.application.sensorforge.ui.SfCard
+import com.application.sensorforge.crashguard.isIncidentScreen
+import com.application.sensorforge.sdk.detect.IncidentState
 import com.application.sensorforge.ui.theme.SensorforgeTheme
 
 class MainActivity : ComponentActivity() {
@@ -34,20 +38,20 @@ class MainActivity : ComponentActivity() {
                 Scaffold(modifier = Modifier.fillMaxSize(), containerColor = MaterialTheme.colorScheme.background) { p ->
                     val model by crashGuard.modelUi.collectAsState()
                     val live by crashGuard.live.collectAsState()
-                    Column(
-                        Modifier.padding(p).verticalScroll(rememberScrollState()).padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        Text("CrashGuard", style = MaterialTheme.typography.headlineLarge)
-                        SfCard {
-                            Text("Motion sensors only, camera and mic off", style = MaterialTheme.typography.bodyLarge)
-                            Text(
-                                "LIVE  accel %.0f Hz · gyro %.0f Hz · rotation %.0f Hz".format(live.accelHz, live.gyroHz, live.rotHz),
-                                style = MaterialTheme.typography.bodyMedium,
-                            )
-                            if (live.missing.isNotEmpty()) Text("CapabilityMissing: ${live.missing}")
+                    val inc by crashGuard.incident.collectAsState()
+                    Column(Modifier.padding(p)) {
+                        when {
+                            inc.state == IncidentState.COUNTDOWN -> CountdownScreen(inc, crashGuard)
+                            inc.state.isIncidentScreen() -> EvidenceScreen(inc, crashGuard)
+                            else -> Column(
+                                Modifier.verticalScroll(rememberScrollState()).padding(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp),
+                            ) {
+                                Text("CrashGuard", style = MaterialTheme.typography.headlineLarge)
+                                ArmedCard(live, inc, crashGuard)
+                                ModelCard(model, crashGuard)
+                            }
                         }
-                        ModelCard(model, crashGuard)
                     }
                 }
             }
