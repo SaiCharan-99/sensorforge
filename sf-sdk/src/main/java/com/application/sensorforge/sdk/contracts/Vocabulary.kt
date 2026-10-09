@@ -32,4 +32,7 @@ object Vocabulary {
 
     val IDENTITY_POLICIES = setOf("track_continuity", "code_required")
     val MODES = setOf("verify", "detect")
+
+    /** `list<code>`: host-supplied items (for_each); `time`: UTC epoch ms (AFTER_PARAM). */
+    val PARAMETER_TYPES = setOf("list<code>", "time")
 }

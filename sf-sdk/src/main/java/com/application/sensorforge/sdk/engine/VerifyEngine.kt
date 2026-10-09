@@ -1,6 +1,9 @@
 package com.application.sensorforge.sdk.engine
 
+import com.application.sensorforge.sdk.contracts.AfterParam
 import com.application.sensorforge.sdk.contracts.AnyOrder
+import com.application.sensorforge.sdk.contracts.ContractError
+import com.application.sensorforge.sdk.contracts.ContractException
 import com.application.sensorforge.sdk.contracts.Before
 import com.application.sensorforge.sdk.contracts.ForbiddenClass
 import com.application.sensorforge.sdk.contracts.MaxInstances
@@ -16,7 +19,22 @@ import com.application.sensorforge.sdk.contracts.Timeline
  */
 object VerifyEngine {
 
-    fun evaluate(spec: ProcedureSpec, timeline: Timeline, expectedPerceptionStack: String? = null): Decision {
+    /** @param params host parameter values; `time` parameters are UTC epoch ms (AFTER_PARAM). */
+    fun evaluate(
+        spec: ProcedureSpec,
+        timeline: Timeline,
+        expectedPerceptionStack: String? = null,
+        params: Map<String, List<String>> = emptyMap(),
+    ): Decision {
+        // AFTER_PARAM needs its parameter and a wall clock on the timeline; checked before anything else.
+        spec.constraints.filterIsInstance<AfterParam>().forEach { c ->
+            if (params[c.param]?.firstOrNull()?.toLongOrNull() == null) {
+                throw ContractException(listOf(ContractError("$.parameters.${c.param}", "AFTER_PARAM parameter '${c.param}' not supplied (UTC epoch ms)")))
+            }
+            if (timeline.startUtcMs == null) {
+                throw ContractException(listOf(ContractError("$.start_utc_ms", "timeline has no wall clock; AFTER_PARAM '${c.step}' can't be checked")))
+            }
+        }
         if (expectedPerceptionStack != null && timeline.perceptionStack != expectedPerceptionStack) {
             // Fail closed: perception we can't vouch for yields no evidence at all.
             val reason = Reason(
@@ -26,10 +44,10 @@ object VerifyEngine {
             val steps = spec.steps.map { StepResult(it.id, StepStatus.NOT_OBSERVABLE, it.required) }
             return Decision(Verdict.UNVERIFIED, listOf(reason), steps)
         }
-        return Evaluation(spec, timeline).run()
+        return Evaluation(spec, timeline, params).run()
     }
 
-    private class Evaluation(val spec: ProcedureSpec, val timeline: Timeline) {
+    private class Evaluation(val spec: ProcedureSpec, val timeline: Timeline, val params: Map<String, List<String>>) {
         val clsOfEntity = spec.entities.associate { it.id to it.cls }
         val entityById = spec.entities.associateBy { it.id }
         val identity = IdentityGraph(timeline)
@@ -142,6 +160,14 @@ object VerifyEngine {
                     }
                 }
                 is AnyOrder -> Unit
+                is AfterParam -> {
+                    val t = results[c.step]?.t ?: continue
+                    val at = timeline.startUtcMs!! + (t * 1000).toLong()
+                    val limit = params.getValue(c.param).first().toLong()
+                    if (at < limit) {
+                        reasons += Reason(ReasonCode.ORDER_VIOLATED, "${c.step}>${c.param}", "'${c.step}' happened before '${c.param}'.")
+                    }
+                }
             }
         }
 

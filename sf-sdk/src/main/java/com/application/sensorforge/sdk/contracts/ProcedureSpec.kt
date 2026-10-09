@@ -68,6 +68,15 @@ data class AnyOrder(val steps: List<String>, override val source: String? = null
 @SerialName("SAME_IDENTITY")
 data class SameIdentity(val a: String, val b: String, override val source: String? = null) : ConstraintDef
 
+/**
+ * Schema 3.0 addition (SealSafe, tech spec Part F "state_change AFTER param start_time"):
+ * the step's evidence time must be >= the `time` parameter [param] (UTC epoch ms).
+ * Violation -> ORDER_VIOLATED; parameter missing -> ContractError.
+ */
+@Serializable
+@SerialName("AFTER_PARAM")
+data class AfterParam(val step: String, val param: String, override val source: String? = null) : ConstraintDef
+
 @Serializable
 sealed interface ProhibitedDef
 

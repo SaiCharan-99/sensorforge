@@ -6,6 +6,8 @@ import android.os.SystemClock
 import android.util.Log
 import com.application.sensorforge.sdk.perception.BBox
 import com.application.sensorforge.sdk.perception.Detection
+import com.application.sensorforge.sdk.runtime.BackendLog
+import com.application.sensorforge.sdk.runtime.LatencyMeter
 import com.google.mediapipe.framework.image.BitmapImageBuilder
 import com.google.mediapipe.tasks.core.BaseOptions
 import com.google.mediapipe.tasks.core.Delegate
@@ -27,7 +29,10 @@ class MpObjectDetector(
     private val detector: ObjectDetector
     var lastMs = 0.0; private set
 
+    private val meter: LatencyMeter
+
     init {
+        val t0 = SystemClock.elapsedRealtimeNanos()
         var made: Pair<ObjectDetector, String>? = null
         for (d in listOf(Delegate.GPU, Delegate.CPU)) {
             try {
@@ -46,12 +51,17 @@ class MpObjectDetector(
         val (det, be) = made ?: error("No MediaPipe delegate could load $modelAsset")
         detector = det; backend = be
         Log.i(TAG, "loaded $modelAsset runtime MediaPipe Tasks 0.10.21 (TFLite) delegate $backend")
+        val ms = (SystemClock.elapsedRealtimeNanos() - t0) / 1e6
+        BackendLog.init(context)
+        BackendLog.record(modelAsset.substringAfterLast('/'), "MediaPipe Tasks 0.10.21 (TFLite)", "delegate", backend, "upright bitmap", "load", ms)
+        meter = LatencyMeter(modelAsset.substringAfterLast('/'), "MediaPipe Tasks 0.10.21 (TFLite)", "delegate", backend, "upright bitmap")
     }
 
     fun detect(upright: Bitmap): List<Detection> {
         val t0 = SystemClock.elapsedRealtimeNanos()
         val r = detector.detect(BitmapImageBuilder(upright).build())
         lastMs = (SystemClock.elapsedRealtimeNanos() - t0) / 1e6
+        meter.add(lastMs)
         val w = upright.width.toFloat(); val h = upright.height.toFloat()
         return r.detections().mapNotNull { d ->
             val c = d.categories().firstOrNull() ?: return@mapNotNull null

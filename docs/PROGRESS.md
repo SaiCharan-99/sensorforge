@@ -3,7 +3,7 @@
 Phases 0–3 followed tech spec §30. From Phase 4 the plan is **build-first** (user decision, see "Build-first plan"): build every feature and model slot (4–9), then data, training and acceptance (10), then rehearsal (11).
 If time runs out, the spec's cut order still applies: Laya → RelateAnything → local LLM → HandoverProof → RepRight.
 
-**Current stage:** Stage A (build), next milestone A1. Runbook: `docs/WORKFLOW.md`, trigger `build all`.
+**Current stage:** Stage A (build), A1 done (registry UI row in S17 comes with A4); next milestone A2. Runbook: `docs/WORKFLOW.md`, trigger `build all`.
 **Last updated:** 2026-10-10
 
 ## Session handoff (read this first in a new session)
@@ -174,7 +174,11 @@ If time runs out, the spec's cut order still applies: Laya → RelateAnything �
 _Filled during the run._
 
 ## Questions for user (decisions taken by default during the run)
-- SealSafe start-time rule implemented as `AFTER_PARAM` (proposed; not yet confirmed by the user).
+- SealSafe start-time rule implemented as `AFTER_PARAM` (proposed; not yet confirmed by the user). Needs a new `time` parameter type (UTC epoch ms) and `Timeline.start_utc_ms`; missing either is a `ContractError`.
+
+## A1 log
+- `AFTER_PARAM` in contracts/validator/expander/engine + `fixtures/specs/sealsafe.spec.json` + `SealSafeSpecTest` (8 tests).
+- `sdk/models/ModelCatalog` (pure: all model-stack slots, hashes, licences, fallbacks, `models.lock`, fail-closed `check`), `sdk/runtime/ModelRegistry` (live status per slot), `BackendLog` (JSONL, summaries, airplane flag), detector wired to it.
 
 ## Blockers
 - SealSafe needs `state_change AFTER param start_time` (tech spec Part F) but §6 defines no AFTER/param constraint. Proposed `AFTER_PARAM` in Phase 4; the user must confirm.

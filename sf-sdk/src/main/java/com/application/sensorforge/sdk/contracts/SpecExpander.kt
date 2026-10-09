@@ -40,6 +40,7 @@ object SpecExpander {
                 is Before -> pairwise(c.a, c.b, ::itemsOf).map { (a, b) -> c.copy(a = a, b = b) }
                 is SameIdentity -> pairwise(c.a, c.b, ::itemsOf).map { (a, b) -> c.copy(a = a, b = b) }
                 is AnyOrder -> listOf(c.copy(steps = c.steps.flatMap { r -> if (ITEM in r) itemsOf(r).map { r.sub(it) } else listOf(r) }))
+                is AfterParam -> if (ITEM in c.step) itemsOf(c.step).map { c.copy(step = c.step.sub(it)) } else listOf(c)
             }
         }
         return spec.copy(steps = steps, constraints = constraints)

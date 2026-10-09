@@ -12,6 +12,8 @@ data class Timeline(
     val tracks: List<Track> = emptyList(),
     val primitives: List<Primitive> = emptyList(),
     val observability: List<ObservabilityWindow> = emptyList(),
+    /** Wall clock at t = 0 (UTC epoch ms). Needed only by AFTER_PARAM. */
+    @SerialName("start_utc_ms") val startUtcMs: Long? = null,
 )
 
 @Serializable

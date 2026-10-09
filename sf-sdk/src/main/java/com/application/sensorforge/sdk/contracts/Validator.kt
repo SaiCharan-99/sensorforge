@@ -39,7 +39,7 @@ object Validator {
         }
 
         spec.parameters.forEach { (name, def) ->
-            if (def.type != "list<code>") err("$.parameters.$name.type", "unsupported parameter type '${def.type}'")
+            if (def.type !in Vocabulary.PARAMETER_TYPES) err("$.parameters.$name.type", "unsupported parameter type '${def.type}'")
         }
 
         spec.steps.forEachIndexed { i, s ->
@@ -58,6 +58,8 @@ object Validator {
                 }
             } else if (s.forEach !in spec.parameters) {
                 err("$p.for_each", "for_each references undeclared parameter '${s.forEach}'")
+            } else if (spec.parameters.getValue(s.forEach).type != "list<code>") {
+                err("$p.for_each", "for_each needs a 'list<code>' parameter")
             }
             checkConfidence(s.minConfidence, "$p.min_confidence", errors)
         }
@@ -69,6 +71,12 @@ object Validator {
                 is Before -> listOf(c.a, c.b)
                 is AnyOrder -> c.steps
                 is SameIdentity -> listOf(c.a, c.b)
+                is AfterParam -> {
+                    val def = spec.parameters[c.param]
+                    if (def == null) err("$p.param", "AFTER_PARAM references undeclared parameter '${c.param}'")
+                    else if (def.type != "time") err("$p.param", "AFTER_PARAM needs a 'time' parameter, '${c.param}' is '${def.type}'")
+                    listOf(c.step)
+                }
             }
             if (stepRefsOk) refs.filter { it !in steps }.forEach { err(p, "dangling step reference '$it'") }
             if (c.source != null && c.source !in setOf("induced", "developer")) err("$p.source", "unknown source '${c.source}'")

@@ -1,0 +1,22 @@
+{
+  "schema_version": "3.0",
+  "procedure_id": "sealsafe",
+  "version": 1,
+  "parameters": { "start_time": { "type": "time", "source": "host_app" } },
+  "entities": [
+    { "id": "envelope", "cls": "envelope", "identity_policy": "track_continuity" },
+    { "id": "seal", "cls": "seal", "identity_policy": "track_continuity", "head": "state" },
+    { "id": "papers", "cls": "papers", "identity_policy": "track_continuity" }
+  ],
+  "steps": [
+    { "id": "seal_intact", "primitive": "state_is", "entity": "seal", "state": "intact", "observe_target": "seal" },
+    { "id": "seal_broken", "primitive": "state_change", "entity": "seal", "state": "broken", "observe_target": "seal" },
+    { "id": "papers_out", "primitive": "exits_container", "entity": "papers", "container": "envelope", "observe_target": "envelope" }
+  ],
+  "constraints": [
+    { "type": "BEFORE", "a": "seal_intact", "b": "seal_broken", "source": "developer" },
+    { "type": "AFTER_PARAM", "step": "seal_broken", "param": "start_time", "source": "developer" },
+    { "type": "BEFORE", "a": "seal_broken", "b": "papers_out", "source": "developer" }
+  ],
+  "policy": { "min_observable_coverage": 0.9, "unexplained_change_blocks_pass": true, "coaching_timeout_s": 3 }
+}
