@@ -1,0 +1,179 @@
+# SensorForge — Model Stack
+
+**Version:** 1.0 FINAL · **Date:** 2026-10-09
+**Doc set:** `sensorforge-problem-solution.md` (scope, claims) · `sensorforge-technical-spec-v3.md` (implementation) · **this file** (models, runtimes, gates, fallbacks)
+
+> **Selection rule.** A model is in the build only if (1) it produces a primitive or head output the spec needs, (2) no simpler algorithm does the job, (3) it passes its gate on the actual iQOO with backend + latency logged. No model is mentioned in the pitch without a log line.
+
+---
+
+## 1. Summary table
+
+| ID | Component | Choice | Apps | Tier |
+|---|---|---|---|---|
+| M1 | Object detector | YOLOE (open-vocab) → fallback fine-tuned small detector | PackCheck, SealSafe, HandoverProof | T1 |
+| M2 | Image encoder for heads | Small MobileNet-class encoder (frozen) | PackCheck, SealSafe | T1 |
+| H1 | Identity head | Prototype / linear head on M2 embeddings (trained on phone) | PackCheck | T1 |
+| H2 | State head | Linear head on M2 embeddings (trained on phone) | SealSafe | T1 |
+| H3 | IMU risk head | Logistic / 2-layer MLP on IMU features (trained on phone) | CrashGuard | T1 |
+| C1 | Classical CV | OpenCV Android: ArUco, homography, LK flow, Laplacian, MOG2, QR | PackCheck, SealSafe, HandoverProof | T1 |
+| C2 | Codes | zxing-cpp | PackCheck, HandoverProof | T1 |
+| C3 | Tracker | IoU + Kalman (ByteTrack-style), Kotlin | all camera apps | T1 |
+| M3 | Pose | MediaPipe Pose Landmarker | RepRight | T2 |
+| M4 | Hands | MediaPipe Hand Landmarker | HandoverProof | T2 |
+| M5 | Relations | RelateAnything (keyframes) | HandoverProof | T2 spike |
+| M6 | Local LLM (authoring) | Qwen3-4B or SmolLM2-1.7B-Instruct via Qualcomm Genie/GenieX | Forge | P1 |
+| M7 | STT (voice authoring) | Android on-device recognizer | Forge | P1 |
+| O1 | Laya | Forge step-typer / one bounded adjudication | Forge | Optional |
+| O2 | TAPNext++ | Laptop-side example labelling only | Forge (offline prep) | Optional |
+| — | TTS | Android TextToSpeech | coaching | T1 |
+| ✗ | FreeMoCap | Not adopted (multi-camera desktop) | — | — |
+| ✗ | JEV | Not adopted (proprietary) | — | — |
+
+---
+
+## 2. Pre-flight device checks (do first)
+
+1. `adb shell getprop ro.soc.model` (SM8850 ⇒ Snapdragon 8 Elite Gen 5); record Android version, RAM.
+2. Enumerate sensors: accelerometer, gyroscope, rotation vector, step counter, location providers.
+3. Confirm CameraX analysis resolution/fps.
+4. Run one AI Hub sample model and log its execution provider.
+5. Airplane-mode run of the empty app with bundled assets.
+
+---
+
+## 3. Core models (T1)
+
+### M1 — Object detector
+| Field | Value |
+|---|---|
+| Job | Boxes for box, envelope, charger, cable, adapter, papers, impostor, hands-region items |
+| Primary | YOLOE (prompt- or vocabulary-based open-vocab detection), vocabulary fixed at export from pack class list |
+| Fallback | Fine-tune a small detector on our real props (4–6 classes); or tagged props (QR/colour), declared openly |
+| Licence | YOLOE/Ultralytics code is AGPL — acceptable for hackathon; review before distribution. Apache alternatives listed in Qualcomm AI Hub |
+| Export | Qualcomm AI Hub → TFLite/QNN or ONNX; profile on hosted device first |
+| Runtime | LiteRT + QNN delegate, or ONNX Runtime + QNN EP; GPU/CPU fallback |
+| Input | Smallest resolution keeping recall (start 320–640) |
+| Gate | Correct classes on new recordings of our props under demo lighting; ≥ 5 fps sustained |
+
+### M2 — Image encoder
+| Field | Value |
+|---|---|
+| Job | Embeddings of item/seal crops for H1, H2 |
+| Choice | Small MobileNet-class feature extractor (pick by spike; log backend) |
+| Gate | Linear separability on our crops (genuine vs impostor; intact vs broken) on held-out sessions |
+
+### H1 / H2 — Vision heads (trained on phone)
+Prototype (nearest-centroid) or linear softmax on M2 embeddings; Kotlin training (tech spec §16.4). Gate: held-out accuracy > baseline, weights hash changes, train time < 10 s.
+
+### H3 — IMU risk head (trained on phone, live on stage)
+| Field | Value |
+|---|---|
+| Input | 32–64 window features (tech spec §18) |
+| Model | Logistic regression or 2-layer MLP (Kotlin, Adam) |
+| Classes | normal, shake, drop, impact_like |
+| Data | Live-recorded normal/shake/drop; impact_like from labelled replay fixtures |
+| Gate | Session-split held-out: shake/knock never → SUSPECTED; impact replays → SUSPECTED; training < 5 s |
+
+### C1–C3 — Classical (no ML)
+| Function | Produces |
+|---|---|
+| ArUco + homography | zones → `enters_zone`, `leaves_zone`, `region_empty`, partner/customer sides |
+| Lucas–Kanade flow | box propagation between detector frames |
+| Laplacian + IMU | `camera_unstable` |
+| MOG2 background subtraction | candidate `unexplained_change` |
+| zxing-cpp / OpenCV QR | `code_read` |
+| IoU + Kalman tracker | tracks, `track_break`, `identity_unresolved` |
+
+Pose/hand/face landmarks are **MediaPipe**, not OpenCV.
+
+---
+
+## 4. T2 models
+
+### M3 — Pose (RepRight)
+MediaPipe Pose Landmarker, bundled offline. Angles smoothed; reps via state machine. Gate: correct count on valid reps, rejects too-fast/partial, UNVERIFIED when keypoints lost.
+
+### M4 — Hands (HandoverProof)
+MediaPipe Hand Landmarker; hand–object overlap + side zones decide `held_by_hand`/`transferred`. Gate: transfer detected at correct moment on demo clips.
+
+### M5 — RelateAnything (spike)
+| Field | Value |
+|---|---|
+| Job | "who is holding what" relations on keyframes |
+| Source | github.com/Maelic/RelateAnything (Apache-2.0); DINOv3 ViT-S+/16 backbone — check DINOv3 weight licence |
+| Vocabulary | Predicate strings are a runtime input: `holding, in, on, handing to` |
+| Size | ~105 MB relation model (+ YOLOE-11s ~24 MB) |
+| Runtime | ONNX Runtime Android; keyframes only |
+| Known numbers | GPU only (~17 ms RTX 3080 laptop); phone unknown |
+| Gate | "holding" flips partner → customer correctly on iQOO within keyframe budget |
+| Fallback | hand overlap + side zones |
+
+---
+
+## 5. Authoring models (P1)
+
+### M6 — Local LLM
+| Field | Value |
+|---|---|
+| Job | Sentence → schema-valid spec JSON; clarifying questions; example checklist |
+| Candidates | Qwen3-4B (Qualcomm Genie example, 8 Elite Gen 5 target); SmolLM2-1.7B-Instruct |
+| Integration | Qualcomm GenieX Android SDK (developer preview) or Genie bundle |
+| Loaded | Forge only; never during verification |
+| Fallback | Template compiler (P0) |
+| Gate | Valid schema on ≥ 8/10 test sentences offline on the iQOO |
+
+### M7 — STT
+Android on-device speech recognizer (offline language pack installed beforehand). Gate: works in airplane mode.
+
+---
+
+## 6. Optional
+
+### O1 — Laya
+Text-only, non-generative typed-decision model. Base checkpoints near chance zero-shot; fp32 ONNX ≈ 1.7 GB (use int8 and verify agreement vs fp32). Roles allowed: (a) Forge step-typer — clause → primitive / constraint / observable; (b) one bounded adjudication producing an observation. **Never** decides a verdict; never in CrashGuard's fast path. Gate: beats rule baseline on held-out data and runs on iQOO with backend logged; else omit.
+
+### O2 — TAPNext++
+github.com/google-deepmind/tapnet (Apache-2.0). Online point tracking with occlusion handling; documented real-time on GPU. Use only on the laptop (Green Light) to auto-label example clips. No on-phone claim unless a phone spike passes.
+
+---
+
+## 7. Fallback matrix
+
+| If on phone | Fallback | Claim becomes |
+|---|---|---|
+| M1 slow on NPU | smaller input / GPU | "GPU" for that model |
+| M1 inaccurate | fine-tuned detector or tagged props | "controlled props" |
+| H1/H2 weak | code read only (PackCheck); drop SealSafe state → order + container only | no head claim for that app |
+| H3 unstable | stricter gate + stillness rule | "rule-based triage" (still train live) |
+| M3 flaky | drop RepRight | — |
+| M5 slow | side zones | "rule-based hold detection" |
+| M6 invalid JSON | template compiler | "guided authoring" |
+| O1/O2 fail | omit | — |
+
+---
+
+## 8. Measurement log (fill on device; source of every pitch number)
+
+| Model | Version | Runtime | Exec provider | Backend | Input | Cold ms | Warm p50/p95 ms | Memory MB | Thermal after 5 runs | Notes |
+|---|---|---|---|---|---|---|---|---|---|---|
+| M1 detector | | | | | | | | | | |
+| M2 encoder | | | | | | | | | | |
+| H1 identity (train / infer) | | CPU | | | | | | | | |
+| H2 state (train / infer) | | CPU | | | | | | | | |
+| H3 IMU (train / infer) | | CPU | | | | | | | | |
+| M3 pose | | | | | | | | | | |
+| M4 hands | | | | | | | | | | |
+| M5 RelateAnything | | | | | | | | | | |
+| M6 LLM | | | | | | | | | | |
+| O1 Laya | | | | | | | | | | |
+
+---
+
+## 9. Build order
+1. Pre-flight (§2).
+2. H3 + IMU features (no camera dependency — fastest real training).
+3. M1 + C1–C3 → PackCheck; then M2 + H1.
+4. H2 → SealSafe; pack export → HelloForge.
+5. **Gate.** Then M3 → RepRight; M4 (+M5 spike) → HandoverProof.
+6. M6/M7 authoring; O1, O2 last.
