@@ -26,7 +26,7 @@ Cut order if behind: Laya → RelateAnything → local LLM → HandoverProof →
 - [ ] Pre-flight device checks (model stack §2):
   - [x] `adb shell getprop ro.soc.model` → SM8850 (Snapdragon 8 Elite Gen 5) ✔; Android 16 (SDK 36); RAM ~15.6 GB
   - [x] Enumerate sensors: accelerometer, gyroscope, rotation vector, step counter, step detector, gps/fused/network location ✔
-  - [ ] Confirm CameraX analysis resolution/fps (needs CameraX slice, Phase 3)
+  - [x] CameraX analysis: 640�480 YUV, rotation 90�, 30�31 fps, keep-latest, back camera (2026-10-10, Phase 3 slice 1)
   - [ ] Run one AI Hub sample model and log its execution provider (needs runtime dependency decision, see blockers)
   - [ ] Airplane-mode run of the empty app with bundled assets
 - [x] Repo + 3 modules (`sf-sdk`, `studio-app`, `hello-forge`) + `fixtures/` (`:app` renamed to `:studio-app`); all build, both apps install + launch on iQOO
@@ -94,7 +94,7 @@ Cut order if behind: Laya → RelateAnything → local LLM → HandoverProof →
 | Android version | 16 (SDK 36) |
 | RAM | 15,583,752 kB (~15.6 GB) |
 | Sensors present | Accelerometer (ST lsm6dsvx), gyroscope (vsen_gyro), rotation vector, step counter (pedometer), step detector (both need ACTIVITY_RECOGNITION), magnetometer; location providers gps, fused, network |
-| CameraX analysis res/fps | |
+| CameraX analysis res/fps | 640�480 @ 30�31 fps (ImageAnalysis, keep-latest, debug build, no analyzer work) |
 
 ## Decisions log
 | Date | Decision |
@@ -112,8 +112,9 @@ Cut order if behind: Laya → RelateAnything → local LLM → HandoverProof →
 | 2026-10-10 | Detection mode is user-selectable: trained head (H3) or calibrated threshold (default 1.5 × gate = 4.5 g) + stillness; with no head approved, HEAD mode uses the threshold. Labelled "calibrated", never "trained" |
 | 2026-10-10 | Local alarm (torch blink, alarm sound, vibration) on COUNTDOWN at the user's request. Torch is not camera capture; S10 status now reads "no camera capture, mic off". Alarm contacts no one |
 | 2026-10-10 | Unobservable decision window → no incident, trace says NOT_OBSERVABLE |
+| 2026-10-10 | Runtime for M1/M2: LiteRT + QNN delegate, GPU then CPU fallback (user said proceed on this recommendation). ONNX Runtime only where the model stack names it |
 | 2026-10-10 | Post-peak stillness (§18) is measured from 0.25 s after the acceleration-magnitude peak (`SETTLE_NANOS`) so the impact tail is excluded |
 
 ## Blockers
 - SealSafe needs `state_change AFTER param start_time` (tech spec Part F) but §6 defines no AFTER/param constraint. Schema addition needed before Phase 4.
-- AI Hub sample model check needs a runtime choice (LiteRT+QNN vs ONNX Runtime+QNN EP), per model stack M1.
+- M1 detector model file needed (YOLOE TFLite export from AI Hub, or fine-tuned small detector). Runtime decided: LiteRT + QNN.

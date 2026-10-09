@@ -25,6 +25,12 @@ import com.application.sensorforge.crashguard.DetectionCard
 import com.application.sensorforge.crashguard.EvidenceScreen
 import com.application.sensorforge.crashguard.ModelCard
 import com.application.sensorforge.crashguard.isIncidentScreen
+import com.application.sensorforge.perception.CameraCheckCard
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import com.application.sensorforge.sdk.detect.IncidentState
 import com.application.sensorforge.ui.theme.SensorforgeTheme
 
@@ -40,10 +46,18 @@ class MainActivity : ComponentActivity() {
                     val model by crashGuard.modelUi.collectAsState()
                     val live by crashGuard.live.collectAsState()
                     val inc by crashGuard.incident.collectAsState()
+                    var tab by rememberSaveable { mutableIntStateOf(0) }
                     Column(Modifier.padding(p)) {
+                        if (!inc.state.isIncidentScreen() && inc.state != IncidentState.COUNTDOWN) {
+                            TabRow(selectedTabIndex = tab) {
+                                Tab(tab == 0, { tab = 0 }, text = { Text("CrashGuard") })
+                                Tab(tab == 1, { tab = 1 }, text = { Text("Camera") })
+                            }
+                        }
                         when {
                             inc.state == IncidentState.COUNTDOWN -> CountdownScreen(inc, crashGuard)
                             inc.state.isIncidentScreen() -> EvidenceScreen(inc, crashGuard)
+                            tab == 1 -> Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp)) { CameraCheckCard() }
                             else -> Column(
                                 Modifier.verticalScroll(rememberScrollState()).padding(16.dp),
                                 verticalArrangement = Arrangement.spacedBy(12.dp),
