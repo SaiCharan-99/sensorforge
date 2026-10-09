@@ -76,6 +76,8 @@ If time runs out, the spec's cut order still applies: Laya → RelateAnything �
 
 ## Phase 5: Forge studio (authoring → capture → train → test → export) + shell screens
 - [ ] S01 Studio home (tiles for all apps + "Forge new verifier"), app navigation
+- [ ] **Guided setup flow for every use case** (user decision): Describe → Plan → Capture → Train → Test → Export → Import, shared by PackCheck, CrashGuard, SealSafe, RepRight, HandoverProof and new verifiers. Retrofit the existing CrashGuard and PackCheck capture/train cards into it
+- [ ] S02b Plan: example plan generated from the spec + `docs/data-requirements.md` (good / bad / unclear items, head classes, counts, held-out, how-to, expected verdict, required config); editable; gates Capture
 - [ ] S02 Describe: P0 template compiler (show X, open X, remove X from Y, only after T, hold for N seconds), editable step cards + JSON, example checklist
 - [ ] S03 Capture: record examples with labels (`valid|invalid|insufficient`, `missing_steps`), session split `dev|held_out`, per-class counts; **plus import of clips/recordings already on the phone** so supplied data drops straight in
 - [ ] Scoring (false accepts / false rejects / wrong_kind), order + requirement induction, threshold calibration (`ok|fragile|infeasible`), regression on every approved delta (S05)
@@ -161,6 +163,7 @@ If time runs out, the spec's cut order still applies: Laya → RelateAnything �
 | 2026-10-10 | Identity across tracks only from an equal instance code on a non-concurrent track; otherwise new identity + `identity_unresolved` to the latest ended (or jumped) track of that class |
 | 2026-10-10 | H1 uses a handcrafted crop embedding until an M2 encoder exists; labelled as such in UI and model stack |
 | 2026-10-10 | **Build-first:** the user asked to build every feature, screen and model slot before supplying data; the gate and acceptance move to Phase 10, and the open human data tasks move there too. Every build phase must meet the UI/function bar (design.md, no dead UI) |
+| 2026-10-10 | Every use case gets a guided Describe → **Plan** → Capture → Train → Test → Export → Import flow. Plan is a dedicated step that shows the example checklist (tech spec §16.2) with counts, held-out sessions and how-to; capture is driven by it |
 | 2026-10-10 | Post-peak stillness (§18) is measured from 0.25 s after the acceleration-magnitude peak (`SETTLE_NANOS`) so the impact tail is excluded |
 
 ## Blockers

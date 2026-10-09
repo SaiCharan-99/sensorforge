@@ -37,9 +37,18 @@ All colours, typography, spacing, component styling, motion and accessibility ru
 App tiles: PackCheck, CrashGuard, SealSafe, RepRight, HandoverProof. Each tile shows its sensors and its mode (Verify/Detect). Primary button: "Forge new verifier". Links: Backend log, Settings/Privacy.
 
 ### S02–S07: Forge (`SensorForge.forge()`)
-Stepper: **Define → Capture → Train → Test → Export → Import** (slide 3 flow).
+Stepper: **Describe → Plan → Capture → Train → Test → Export → Import**. This is the slide 3 flow with a dedicated Plan step (user decision).
+**Every use case uses this same guided flow:** PackCheck, CrashGuard, SealSafe, RepRight, HandoverProof and any newly forged verifier. Opening a use-case tile for the first time, or tapping "Set up / retrain", starts at Describe. Each step stays reachable from the stepper, and finished steps show a check.
 - **S02 Describe:** sentence input (+ mic, P1 voice authoring) or template. The draft spec appears as editable step cards (id, primitive, entity) with constraint chips (`BEFORE`, `ANY_ORDER`, `SAME_IDENTITY`, `source: induced|developer`) and a JSON toggle. The example checklist shows valid variants and hard negatives. Example sentence: "Show the sealed envelope, open only after start, remove the papers."
-- **S03 Capture:** camera preview + recording dot; **Import** button for clips/recordings already on the phone (labelled on import). Example list labelled `valid | invalid | insufficient` and tagged `dev | held_out`. Per-class count against the minimum of 5.
+- **S02b Plan (example plan):** generated from the spec and `docs/data-requirements.md`. Shows what to capture before any recording starts:
+  - **Good examples:** valid variants, e.g. order A and order B.
+  - **Bad examples:** each hard negative, e.g. missing item, impostor, opened early.
+  - **Unclear examples:** e.g. covered lens, leaves frame.
+  - Head classes to collect (e.g. genuine / impostor, intact / broken, normal / shake / drop).
+  - Per item: target count (min 5 dev), held-out session needed, expected verdict, and a one-line "how to perform it" instruction.
+  - Config the use case needs (start time, angles, item list).
+  The developer can add, remove or edit plan items. **Start capture** is enabled once the plan is accepted.
+- **S03 Capture:** guided by the Plan. Pick a plan item → instruction card ("Take the adapter out, then show its label") → record → auto-labelled with that item's label and expected verdict, editable afterwards. Progress per item (e.g. 3/5) and overall. "Mark next session as held-out" toggle. Train is enabled when every required item meets its minimum, otherwise disabled with the missing items listed. Also: camera preview + recording dot; **Import** button for clips/recordings already on the phone (labelled on import). Example list labelled `valid | invalid | insufficient` and tagged `dev | held_out`. Per-class count against the minimum of 5.
 - **S04 Train:** Train button, live loss curve, HashCard (parent → trained sha256), changed parameter count, training backend (CPU), train time. "Approve new version" / "Rollback".
 - **S05 Test:** held-out per-class metrics; false accepts (emphasised as the worst error), false rejects, wrong_kind; calibration per step `ok | fragile | infeasible` (infeasible shows "perception can't support this step"); regression deltas with their consequence before approval.
 - **S06 Export:** pack summary (pack_id, version, mode, perception_profile chips, pack_sha256). Share via Sharesheet/Nearby or save to storage. Code card with the two-line import.

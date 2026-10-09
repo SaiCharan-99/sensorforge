@@ -1,6 +1,6 @@
 # Data Requirements (good / bad examples per use case)
 
-The app is built first; real data comes afterwards (Phase 10). This file says exactly what to capture so training, calibration and acceptance run without surprises.
+The app is built first; real data comes afterwards (Phase 10). **In the app, this content is the Plan step** (S02b) of each use case's guided setup: Describe → Plan → Capture → Train → Test → Export. The Plan step shows these items as a checklist, and Capture records against them. This file says exactly what to capture so training, calibration and acceptance run without surprises.
 Sources: tech spec §16.3–§16.4, §18, §20, Part F, §25; model stack §3–§4. The Unboxing section comes from `tools/detector/README.md` (added in a later session; not in the three spec docs).
 
 ## Rules that apply to every use case

@@ -15,6 +15,7 @@ Phones can see, hear and feel, yet turning raw sensor data into a trustworthy ju
 
 ### Solution flow
 1. **Describe** the event (template or sentence).
+1b. **Plan** the examples: the app lists the good, bad and unclear examples and head classes to capture, with counts, held-out sessions and how to perform each (user decision: a dedicated step for every use case).
 2. **Capture** GOOD and BAD examples on the phone.
 3. **Train & calibrate** on the phone — small heads genuinely trained (weights change, hash shown); order, thresholds and rules calibrated.
 4. **Test** against held-out examples — false accepts are the worst error.
@@ -103,7 +104,7 @@ There are no external wireframes. Screens and the design system are defined in `
 | Screen | ui-design.md |
 |---|---|
 | Studio home (app tiles) | S01 |
-| Forge: describe → capture → train → test → export | S02–S06 |
+| Forge / per-use-case setup: describe → plan → capture → train → test → export | S02, S02b, S03–S06 |
 | PackCheck live / verify result | S08–S09 |
 | CrashGuard armed / countdown / evidence + SIMULATED SOS | S10–S12 |
 | SealSafe live | S13 |

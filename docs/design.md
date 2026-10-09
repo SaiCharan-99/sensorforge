@@ -106,7 +106,7 @@ Minimum body text 14 sp. Never below 12 sp. Respect system font scaling (layouts
 | **OfflineBadge** | Pending colours + airplane icon, "Offline". Shown only after a verified airplane-mode run |
 | **RecordingDot** | 10 dp `failSolid` dot + "REC" label in the top bar whenever the camera is active |
 | **ErrorCard** | FAIL container, error type in `mono`, fix hint in `bodyLarge`, one action button |
-| **Stepper (Forge)** | 6 labelled steps; done = `primary` filled circle with check; current = `primaryContainer` + `primary` ring; upcoming = `outline` ring |
+| **Stepper (Forge)** | 7 labelled steps (Describe, Plan, Capture, Train, Test, Export, Import); done = `primary` filled circle with check; current = `primaryContainer` + `primary` ring; upcoming = `outline` ring |
 | **Top bar** | `surface` bg, 1 dp bottom `outline`, title `titleMedium`; right side: OfflineBadge, RecordingDot |
 | **Camera preview** | Radius 16 card. Overlays (boxes, zones) drawn 2 dp: detector boxes `primary`, zones `chart3` dashed, impostor/forbidden `failSolid`. Labels on `surface` @ 90% pills |
 
