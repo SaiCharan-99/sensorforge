@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.application.sensorforge.sdk.detect.ImuChannel
 import com.application.sensorforge.sdk.detect.ImuRingBuffer
+import com.application.sensorforge.sdk.detect.WindowFeatures
 import com.application.sensorforge.sdk.sensors.AndroidImuSource
 import com.application.sensorforge.ui.theme.SensorforgeTheme
 import kotlinx.coroutines.delay
@@ -54,7 +55,14 @@ fun ImuCheck(buffer: ImuRingBuffer, missing: List<ImuChannel>, modifier: Modifie
         while (true) {
             delay(1000)
             val rates = ImuChannel.entries.joinToString("  ") { "%s %.1f Hz".format(it, buffer.rateHz(it)) }
-            val line = "LIVE  $rates  buffer %.1f s / %d samples".format(buffer.spanSeconds(), buffer.size())
+            val snap = buffer.snapshot()
+            val t0 = System.nanoTime()
+            val v = snap.maxOfOrNull { it.tNanos }?.let { WindowFeatures.compute(snap, it, 3.0, 100) }
+            val ms = (System.nanoTime() - t0) / 1e6
+            val feats = if (v == null) "features NOT_OBSERVABLE" else
+                "features %dd in %.2f ms (cpu)  acc_max %.2f g  gyro_max %.0f dps".format(
+                    v.size, ms, v[WindowFeatures.NAMES.indexOf("acc_g_max")], v[WindowFeatures.NAMES.indexOf("gyro_dps_max")])
+            val line = "LIVE  $rates  buffer %.1f s / %d samples\n$feats".format(buffer.spanSeconds(), buffer.size())
             Log.i("SF.IMU", line)
             text = line
         }
