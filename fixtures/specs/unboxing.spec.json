@@ -1,0 +1,33 @@
+{
+  "schema_version": "3.0",
+  "procedure_id": "unboxing",
+  "version": 1,
+  "entities": [
+    { "id": "box", "cls": "box", "identity_policy": "track_continuity" },
+    { "id": "seal", "cls": "seal", "identity_policy": "track_continuity", "head": "state" },
+    { "id": "envelope", "cls": "envelope", "identity_policy": "track_continuity" },
+    { "id": "phone", "cls": "phone", "identity_policy": "track_continuity", "head": "state" },
+    { "id": "cable", "cls": "cable", "identity_policy": "track_continuity" }
+  ],
+  "steps": [
+    { "id": "seal_removed", "primitive": "state_change", "entity": "seal", "state": "broken", "observe_target": "box" },
+    { "id": "box_opened", "primitive": "state_change", "entity": "box", "state": "open", "observe_target": "box" },
+    { "id": "envelope_out", "primitive": "exits_container", "entity": "envelope", "container": "box", "observe_target": "box" },
+    { "id": "phone_out", "primitive": "exits_container", "entity": "phone", "container": "box", "observe_target": "box" },
+    { "id": "cable_out", "primitive": "exits_container", "entity": "cable", "container": "box", "observe_target": "box" },
+    { "id": "phone_unsealed", "primitive": "state_change", "entity": "phone", "state": "unsealed", "observe_target": "phone" },
+    { "id": "phone_on", "primitive": "state_change", "entity": "phone", "state": "on", "observe_target": "phone" }
+  ],
+  "constraints": [
+    { "type": "BEFORE", "a": "seal_removed", "b": "box_opened", "source": "developer" },
+    { "type": "BEFORE", "a": "box_opened", "b": "envelope_out", "source": "developer" },
+    { "type": "BEFORE", "a": "envelope_out", "b": "phone_out", "source": "developer" },
+    { "type": "BEFORE", "a": "phone_out", "b": "cable_out", "source": "developer" },
+    { "type": "BEFORE", "a": "cable_out", "b": "phone_unsealed", "source": "developer" },
+    { "type": "BEFORE", "a": "phone_unsealed", "b": "phone_on", "source": "developer" }
+  ],
+  "prohibited": [
+    { "type": "MAX_INSTANCES", "entity": "phone", "max": 1 }
+  ],
+  "policy": { "min_observable_coverage": 0.8, "unexplained_change_blocks_pass": false, "coaching_timeout_s": 4 }
+}

@@ -72,6 +72,10 @@ private fun CameraPreview() {
     val ctx = LocalContext.current
     val owner = LocalLifecycleOwner.current
     var stats by remember { mutableStateOf(AnalysisStats()) }
+    // Dataset capture for detector fine-tuning: upright JPEGs, ~3 per second, app-private.
+    val recording = remember { java.util.concurrent.atomic.AtomicReference<java.io.File?>(null) }
+    var recDir by remember { mutableStateOf<java.io.File?>(null) }
+    var saved by remember { mutableStateOf(0) }
     val previewView = remember { PreviewView(ctx) }
 
     DisposableEffect(owner) {
@@ -92,6 +96,7 @@ private fun CameraPreview() {
                 .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                 .build()
             val stamps = ArrayDeque<Long>()
+            var lastSave = 0L
             var count = 0L
             analysis.setAnalyzer(executor) { img ->
                 try {
@@ -101,6 +106,14 @@ private fun CameraPreview() {
                     val upright = if (rot == 0) raw else android.graphics.Bitmap.createBitmap(raw, 0, 0, raw.width, raw.height,
                         android.graphics.Matrix().apply { postRotate(rot.toFloat()) }, true)
                     val dets = det.detect(upright)
+                    recording.get()?.let { dir ->
+                        val nowMs = SystemClock.elapsedRealtime()
+                        if (nowMs - lastSave >= 333) {
+                            lastSave = nowMs
+                            java.io.File(dir, "f_$nowMs.jpg").outputStream().use { upright.compress(android.graphics.Bitmap.CompressFormat.JPEG, 92, it) }
+                            saved++
+                        }
+                    }
                     val now = SystemClock.elapsedRealtimeNanos()
                     stamps.addLast(now); count++
                     while (stamps.isNotEmpty() && now - stamps.first() > 1_000_000_000L) stamps.removeFirst()
@@ -123,6 +136,14 @@ private fun CameraPreview() {
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        val rec = recDir != null
+        PrimaryButton(if (rec) "Stop recording ($saved frames)" else "Record dataset frames") {
+            if (rec) { recording.set(null); Log.i(TAG, "dataset: saved $saved frames to ${recDir?.absolutePath}"); recDir = null }
+            else {
+                val d = java.io.File(ctx.filesDir, "dataset/s${System.currentTimeMillis()}").apply { mkdirs() }
+                saved = 0; recDir = d; recording.set(d)
+            }
+        }
         androidx.compose.foundation.layout.Box(Modifier.fillMaxWidth().aspectRatio(3f / 4f)) {
             AndroidView({ previewView.apply { scaleType = PreviewView.ScaleType.FILL_CENTER } }, Modifier.fillMaxWidth().aspectRatio(3f / 4f))
             androidx.compose.foundation.Canvas(Modifier.fillMaxWidth().aspectRatio(3f / 4f)) {
