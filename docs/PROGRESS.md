@@ -16,12 +16,12 @@ Cut order if behind: Laya → RelateAnything → local LLM → HandoverProof →
 - [ ] Pre-flight device checks (model stack §2):
   - [x] `adb shell getprop ro.soc.model` → SM8850 (Snapdragon 8 Elite Gen 5) ✔; Android 16 (SDK 36); RAM ~15.6 GB
   - [x] Enumerate sensors: accelerometer, gyroscope, rotation vector, step counter, step detector, gps/fused/network location ✔
-  - [ ] Confirm CameraX analysis resolution/fps
-  - [ ] Run one AI Hub sample model and log its execution provider
+  - [ ] Confirm CameraX analysis resolution/fps (needs CameraX slice, Phase 3)
+  - [ ] Run one AI Hub sample model and log its execution provider (needs runtime dependency decision, see blockers)
   - [ ] Airplane-mode run of the empty app with bundled assets
-- [ ] Repo + 3 modules (`sf-sdk`, `studio-app`, `hello-forge`) + `fixtures/`; align current `:app` scaffold
-- [ ] Contracts + validator (`ContractError(path, message)`)
-- [ ] Verify engine (pure Kotlin) + golden JVM tests (`./gradlew :sf-sdk:test`)
+- [x] Repo + 3 modules (`sf-sdk`, `studio-app`, `hello-forge`) + `fixtures/` (`:app` renamed to `:studio-app`); all build, both apps install + launch on iQOO
+- [x] Contracts + validator (`ContractError(path, message)`) + `for_each` expander: 17 JVM tests
+- [x] Verify engine (pure Kotlin) + 14 golden timelines (13 spec scenarios + forbidden impostor), determinism under shuffling, purity check: `./gradlew :sf-sdk:test` 22/22 pass
 
 ## Phase 2: Fri night: CrashGuard + real training
 - [ ] IMU capture (accel + gyro + rotation vector @ ~100 Hz, 20 s ring buffer)
@@ -84,6 +84,13 @@ Cut order if behind: Laya → RelateAnything → local LLM → HandoverProof →
 |---|---|
 | 2026-10-10 | Docs set v1.0/v3.0 FINAL adopted; supersedes earlier SensorForge docs |
 | 2026-10-10 | No external wireframes; UI designed by the agent in `docs/ui-design.md` |
+| 2026-10-10 | Timeline `identity_unresolved` carries `other_track_id` (the earlier track it may equal); spec §9 doesn't name the field |
+| 2026-10-10 | `PERCEPTION_STACK_MISMATCH` and `UNEXPLAINED_CHANGE` classed as UNVERIFIED reasons; stack mismatch fails closed (all steps NOT_OBSERVABLE, no other reasons) |
+| 2026-10-10 | A `code_read` with no decoded value is not trustworthy evidence (→ NOT_OBSERVABLE, rule 5) |
+| 2026-10-10 | Step `entity`/`container` are entity ids; matched against primitive `entity.cls` / `container` class |
+| 2026-10-10 | Manifest `created_on_device` is a boolean; detect-mode packs may not list camera/microphone |
+| 2026-10-10 | Golden timelines are synthetic fixtures, labelled as such in each file |
 
 ## Blockers
-_None._
+- SealSafe needs `state_change AFTER param start_time` (tech spec Part F) but §6 defines no AFTER/param constraint. Schema addition needed before Phase 4.
+- AI Hub sample model check needs a runtime choice (LiteRT+QNN vs ONNX Runtime+QNN EP), per model stack M1.

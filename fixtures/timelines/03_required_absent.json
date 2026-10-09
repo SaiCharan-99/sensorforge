@@ -1,0 +1,108 @@
+{
+  "name": "03_required_absent",
+  "description": "Adapter never leaves the box (T-B01). Label step unseen because the adapter never appears.",
+  "label": "FIXTURE (synthetic golden timeline, not a live recording)",
+  "spec": "specs/packcheck.spec.json",
+  "expected_perception_stack": "sf-perception-test-v1",
+  "timeline": {
+    "clip_id": "03_required_absent",
+    "perception_stack": "sf-perception-test-v1",
+    "duration_s": 20.0,
+    "tracks": [
+      {
+        "track_id": "t1",
+        "cls": "box",
+        "identity_id": "i1",
+        "t_start": 0,
+        "t_end": 20
+      },
+      {
+        "track_id": "t2",
+        "cls": "charger",
+        "identity_id": "i2",
+        "t_start": 1,
+        "t_end": 20
+      }
+    ],
+    "primitives": [
+      {
+        "id": "p1",
+        "type": "state_change",
+        "t": 2.0,
+        "confidence": 0.9,
+        "entity": {
+          "track_id": "t1",
+          "cls": "box"
+        },
+        "state": "open",
+        "evidence_frames": [
+          60
+        ]
+      },
+      {
+        "id": "p2",
+        "type": "exits_container",
+        "t": 5.0,
+        "confidence": 0.9,
+        "entity": {
+          "track_id": "t2",
+          "cls": "charger"
+        },
+        "container": "box",
+        "evidence_frames": [
+          150
+        ]
+      },
+      {
+        "id": "p5",
+        "type": "region_empty",
+        "t": 12.0,
+        "confidence": 0.9,
+        "zone": "box_interior",
+        "evidence_frames": [
+          360
+        ]
+      }
+    ],
+    "observability": [
+      {
+        "target": "box",
+        "intervals": [
+          [
+            0,
+            20
+          ]
+        ]
+      },
+      {
+        "target": "charger",
+        "intervals": [
+          [
+            0,
+            20
+          ]
+        ]
+      },
+      {
+        "target": "adapter",
+        "intervals": []
+      },
+      {
+        "target": "zone:box_interior",
+        "intervals": [
+          [
+            0,
+            20
+          ]
+        ]
+      }
+    ]
+  },
+  "expected": {
+    "verdict": "FAIL",
+    "reasons": [
+      "REQUIRED_ABSENT:adapter_out",
+      "REQUIRED_NOT_OBSERVABLE:adapter_label"
+    ]
+  }
+}
