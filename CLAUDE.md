@@ -20,6 +20,7 @@ Working docs derived from them:
 - `docs/prompts.md` — reusable prompts per phase
 - `docs/design.md` — design system: colours, type, spacing, components (soft light theme)
 - `docs/ui-design.md` — screen specs S01–S19 (no external wireframes; UI is designed in-repo)
+- `docs/WORKFLOW.md` — one-shot end-to-end build runbook (`build all`)
 - `docs/data-requirements.md` — good/bad examples needed per use case (Phase 10)
 - `docs/measurements/` — on-device measurement log (only source of pitch numbers)
 
@@ -35,18 +36,18 @@ Working docs derived from them:
 9. No network calls in any core flow. Airplane-mode run is part of done.
 10. Before adding a model dependency: record id, source, licence, size, runtime, fallback in the model stack.
 
-## "Start phase N" shorthand
-Each phase runs in a fresh session. When the user says **"start phase N"** (or "phase N", "continue phase N"):
-1. Read `docs/PROGRESS.md`, starting with "Session handoff", then the Phase N tasks and Blockers.
-2. If a blocker affects Phase N, ask the user about it before writing code.
-3. Read the tech spec / model stack sections the Phase N tasks reference, plus `docs/build-architecture.md`. For UI work, also read `docs/ui-design.md` and `docs/design.md`.
-4. Implement the Phase N tasks one slice at a time. After every slice: compile, run `./gradlew :sf-sdk:test`, install on the device, commit, and report changed files, commands, test output, blockers and the next smallest task.
-5. At the end, tick the tasks in `PROGRESS.md`, log any decisions, update "Session handoff" for the next session, then commit and push.
+## One-shot build: `build all` / `continue build`
+Development is no longer phase-by-phase. When the user says **"build all"** (or "continue build"):
+1. Read `docs/WORKFLOW.md` (the runbook) and `docs/PROGRESS.md` (start with "Session handoff").
+2. Run Stage A milestones A1–A13 in order, then Stage B (simulation test), **without stopping for questions**: take the default, log it under Decisions, and add it to "Questions for user".
+3. Every use case must satisfy the WORKFLOW.md compliance matrix (tech spec sections + model-stack slots). Use a model-stack §7 fallback only when necessary, and label the claim.
+4. After each milestone: compile, `./gradlew :sf-sdk:test`, install on the iQOO, simulation run, commit + push, tick it in PROGRESS.md, and refresh "Session handoff".
+5. Stop at Stage C and hand over: the per-use-case compliance report, Stage B results, questions, and the manual test runbook. Real good/bad examples come from the user afterwards (Stage D).
 
-**Build-first plan (user decision):** Phases 4–9 build every feature, screen and model slot; Phase 10 is data, training and acceptance; Phase 11 rehearsal. Every build phase must meet the UI/function bar in PROGRESS.md "Build-first plan": screens follow `docs/design.md` + `docs/ui-design.md`, no dead UI (every control works on the iQOO or is visibly disabled with a reason), empty/loading/error/permission states, and a "not installed" state + fallback for every model. Ask the user before downloading any model file.
+UI/function bar: screens follow `docs/design.md` + `docs/ui-design.md`, no dead UI, empty/loading/error/permission states, and a "not installed" state + fallback for every model. Approved model downloads are listed in model stack §10.
 
 ## Workflow
-- Implement in `docs/PROGRESS.md` phase order (build-first from Phase 4; acceptance in Phase 10).
+- Follow `docs/WORKFLOW.md` (one-shot: build → simulation test → handover → user's real-data tests).
 - After every slice: compile, run tests, install on device, report changed files, commands, test output, blockers, next smallest task. Then update `docs/PROGRESS.md`.
 - Cut order if behind: Laya → RelateAnything → local LLM → HandoverProof → RepRight.
 

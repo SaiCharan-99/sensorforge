@@ -2,7 +2,13 @@
 
 Reusable prompts for phase-wise development. The kickoff prompt is from the tech spec, §32.
 
-## Kickoff (tech spec §32)
+## One-shot build (current workflow)
+```
+build all
+```
+Resume after an interruption with `continue build`. Runbook: docs/WORKFLOW.md.
+
+## Kickoff (tech spec §32, original)
 ```
 Read docs/sensorforge-technical-spec-v3.md, docs/sensorforge-problem-solution.md and docs/sensorforge-model-stack.md. Follow Part A rules. Create modules per §3. Implement in §30 order, starting with contracts + verify engine + golden JVM tests, then CrashGuard detect engine and real head training. Stop at the Saturday gate until §31 T1 items pass. After every slice: compile, run tests, install on device, report changed files, commands, test output, blockers, next smallest task.
 ```

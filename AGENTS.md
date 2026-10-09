@@ -10,7 +10,7 @@ Instructions for any AI coding agent working on SensorForge.
 5. `docs/design.md` — design system (colours, type, components); `docs/ui-design.md` — screen specs
 6. `docs/data-requirements.md` — examples needed per use case
 
-Plan is **build-first**: Phases 4–9 build everything (UI must follow design.md, no dead controls), Phase 10 data + training + acceptance.
+Workflow is **one-shot** (`docs/WORKFLOW.md`): build every use case to the spec + model stack, test with SIMULATION data, hand over, then the user tests with real good/bad examples.
 
 Authoritative sources (on conflict: tech spec wins on implementation, problem-solution wins on scope and claims):
 - `docs/sensorforge-problem-solution.md`

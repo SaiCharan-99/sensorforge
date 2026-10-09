@@ -3,7 +3,7 @@
 Phases 0–3 followed tech spec §30. From Phase 4 the plan is **build-first** (user decision, see "Build-first plan"): build every feature and model slot (4–9), then data, training and acceptance (10), then rehearsal (11).
 If time runs out, the spec's cut order still applies: Laya → RelateAnything → local LLM → HandoverProof → RepRight.
 
-**Current phase:** Phase 4 (build-first plan; Phase 2/3 real-data runs moved to Phase 10)
+**Current stage:** Stage A (build), next milestone A1. Runbook: `docs/WORKFLOW.md`, trigger `build all`.
 **Last updated:** 2026-10-10
 
 ## Session handoff (read this first in a new session)
@@ -54,6 +54,8 @@ If time runs out, the spec's cut order still applies: Laya → RelateAnything �
 - [~] M2 encoder + identity head (H1): **M2 not integrated** (no model file); H1 trains on the phone on a handcrafted YUV-histogram crop embedding (`IdentityForge`, PackCheck "Identity head" card: capture genuine/impostor, held-out toggle, Train, HashCard, approve). Train refusal verified on device; **a real capture + train needs a human with the props**
 - [x] PackCheck + coaching (overlay + TTS): `SensorForge.load(context, "asset:specs/packcheck.spec.json")` → `Verifier.start/events/stop`; S08 live (preview, zone/box overlay, live checklist, coaching overlay + Android TTS), S09 result (verdict, reasons, steps, evidence frame, timeline summary). Empty-scene run on iQOO → UNVERIFIED (all NOT_OBSERVABLE); coaching "Show the box to the camera." fired after 3 s
 - [ ] **Needs a human:** print `fixtures/tags/*.png` (≥ 4 cm), tag the box (4 rim corners, floor, inside lid "open", lid top "closed"), charger, adapter AD-42, impostor and duplicate; run T-B01–B05 on the iQOO and log results in `docs/measurements/`
+
+> **Superseded by `docs/WORKFLOW.md` (one-shot, user decision 2026-10-10).** The Phase 4–11 lists below stay as the detailed task checklist for milestones A1–A13 and Stages B–D; tick tasks here as they are done.
 
 ## Build-first plan (from Phase 4)
 **User decision 2026-10-10:** build the whole application first: every feature in the spec docs, every screen, every model slot loaded. Then the user supplies good/bad examples per use case (`docs/data-requirements.md`), and we train, calibrate and run acceptance. So the "T1 must pass before T2" gate moves to Phase 10. Phases 4–9 are **build** phases. Anything that needs real data is collected under Phase 10, not left as a blocker.
@@ -165,7 +167,14 @@ If time runs out, the spec's cut order still applies: Laya → RelateAnything �
 | 2026-10-10 | **Build-first:** the user asked to build every feature, screen and model slot before supplying data; the gate and acceptance move to Phase 10, and the open human data tasks move there too. Every build phase must meet the UI/function bar (design.md, no dead UI) |
 | 2026-10-10 | Every use case gets a guided Describe → **Plan** → Capture → Train → Test → Export → Import flow. Plan is a dedicated step that shows the example checklist (tech spec §16.2) with counts, held-out sessions and how-to; capture is driven by it |
 | 2026-10-10 | Model downloads approved by the user: MediaPipe bundles (pose heavy, hands, MobileNet-V3-large embedder, EfficientDet-Lite2: downloaded to `sf-sdk/src/main/assets/models/`, hashes in model stack §10), YOLOE-11S (AGPL), SmolLM2-1.7B on llama.cpp (deviation from Genie), RelateAnything (DINOv3 licence for the user to accept). Sessions still confirm exact file + size at download time |
+| 2026-10-10 | **One-shot workflow** (`docs/WORKFLOW.md`): no phase-by-phase sessions; `build all` runs milestones A1–A13 and the simulation test, then hands over for the user's real-data tests. Decisions are defaulted and queued as questions, not blocking |
 | 2026-10-10 | Post-peak stillness (§18) is measured from 0.25 s after the acceleration-magnitude peak (`SETTLE_NANOS`) so the impact tail is excluded |
+
+## Stage B results (simulation test)
+_Filled during the run._
+
+## Questions for user (decisions taken by default during the run)
+- SealSafe start-time rule implemented as `AFTER_PARAM` (proposed; not yet confirmed by the user).
 
 ## Blockers
 - SealSafe needs `state_change AFTER param start_time` (tech spec Part F) but §6 defines no AFTER/param constraint. Proposed `AFTER_PARAM` in Phase 4; the user must confirm.
