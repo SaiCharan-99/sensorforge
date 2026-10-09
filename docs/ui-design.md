@@ -39,7 +39,7 @@ App tiles: PackCheck, CrashGuard, SealSafe, RepRight, HandoverProof. Each tile s
 ### S02–S07: Forge (`SensorForge.forge()`)
 Stepper: **Define → Capture → Train → Test → Export → Import** (slide 3 flow).
 - **S02 Describe:** sentence input (+ mic, P1 voice authoring) or template. The draft spec appears as editable step cards (id, primitive, entity) with constraint chips (`BEFORE`, `ANY_ORDER`, `SAME_IDENTITY`, `source: induced|developer`) and a JSON toggle. The example checklist shows valid variants and hard negatives. Example sentence: "Show the sealed envelope, open only after start, remove the papers."
-- **S03 Capture:** camera preview + recording dot. Example list labelled `valid | invalid | insufficient` and tagged `dev | held_out`. Per-class count against the minimum of 5.
+- **S03 Capture:** camera preview + recording dot; **Import** button for clips/recordings already on the phone (labelled on import). Example list labelled `valid | invalid | insufficient` and tagged `dev | held_out`. Per-class count against the minimum of 5.
 - **S04 Train:** Train button, live loss curve, HashCard (parent → trained sha256), changed parameter count, training backend (CPU), train time. "Approve new version" / "Rollback".
 - **S05 Test:** held-out per-class metrics; false accepts (emphasised as the worst error), false rejects, wrong_kind; calibration per step `ok | fragile | infeasible` (infeasible shows "perception can't support this step"); regression deltas with their consequence before approval.
 - **S06 Export:** pack summary (pack_id, version, mode, perception_profile chips, pack_sha256). Share via Sharesheet/Nearby or save to storage. Code card with the two-line import.
@@ -83,11 +83,12 @@ Per-sensor consent toggles, retention info, delete clips after receipt, delete-a
 Deliberately bare, light theme: preview area + one large status text (`result.verdict.name`) + footer with pack id and pack hash. Wrong or absent pack → ErrorCard (e.g. `PerceptionStackMismatch`). This app uses only the two-line import plus minimal UI.
 
 ## Build order for UI
-UI is built alongside each phase in `PROGRESS.md`, not as a separate phase:
-- Phase 2: S10–S12
-- Phase 3: S08–S09
-- Phase 4: S02–S06, S13, S16, S19
+Built alongside each phase in `PROGRESS.md` (build-first plan):
+- Done in Phases 2–3: S10–S12 (CrashGuard), S08–S09 (PackCheck)
+- Phase 4: S13, S16, S19
+- Phase 5: S01, S02–S06, S17, S18
 - Phase 6: S14
 - Phase 7: S15
-- Phase 8: S17 (fill from the measurement log)
-- S01 and S18: Phase 1–2, as soon as `studio-app` exists
+- Phase 9: full polish + click-through QA of every screen against `design.md` §8
+
+Every screen has empty, loading, error and permission-denied states. No control may be dead: it works, or it is disabled with a visible reason.

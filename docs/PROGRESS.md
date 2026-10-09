@@ -1,9 +1,9 @@
 # Progress
 
-Phases follow tech spec §30 (48-hour plan) and model stack §9 (build order).
-Cut order if behind: Laya → RelateAnything → local LLM → HandoverProof → RepRight.
+Phases 0–3 followed tech spec §30. From Phase 4 the plan is **build-first** (user decision, see "Build-first plan"): build every feature and model slot (4–9), then data, training and acceptance (10), then rehearsal (11).
+If time runs out, the spec's cut order still applies: Laya → RelateAnything → local LLM → HandoverProof → RepRight.
 
-**Current phase:** Phase 4: Sat noon (Phase 3 code done; real-prop runs pending, see Phase 3)
+**Current phase:** Phase 4 (build-first plan; Phase 2/3 real-data runs moved to Phase 10)
 **Last updated:** 2026-10-10
 
 ## Session handoff (read this first in a new session)
@@ -14,7 +14,8 @@ Cut order if behind: Laya → RelateAnything → local LLM → HandoverProof →
 - **Install:** `./gradlew assembleDebug`, then `adb install -r studio-app/build/outputs/apk/debug/studio-app-debug.apk`. Device serial `10BFAX1BPJ0010U`.
 - **Build facts:** AGP 9.3.3 (built-in Kotlin), Gradle 9.5, Kotlin 2.2.10, compileSdk/targetSdk 37, minSdk 26, kotlinx-serialization 1.9.0, coroutines 1.10.2, CameraX 1.5.1, ZXing core 3.5.3. Package root `com.application.sensorforge`.
 - **Open human tasks:** Phase 2 shake/drop recordings + retrain + airplane run; Phase 3 printed-tag runs of T-B01–B05 and an H1 capture/train.
-- **Next task:** Phase 4: resolve the SealSafe AFTER-param schema blocker first, then `.sfpkg` export/import and receipts (`VerifierResult.receiptPath`).
+- **Plan changed (2026-10-10):** build-first. See "Build-first plan". Data needs per use case: `docs/data-requirements.md`.
+- **Next task:** Phase 4: confirm the proposed `AFTER_PARAM` constraint with the user first, then `.sfpkg` export/import and receipts (`VerifierResult.receiptPath`).
 - **Device scripting:** logcat tags `SF.IMU`, `SF.H3`, `SF.CG`, `SF.CAM`, `SF.PERC`, `SF.H1`. Timelines: `adb shell run-as com.application.sensorforge ls -R files/verify`.
 
 ## Phase 0: Docs setup
@@ -54,31 +55,69 @@ Cut order if behind: Laya → RelateAnything → local LLM → HandoverProof →
 - [x] PackCheck + coaching (overlay + TTS): `SensorForge.load(context, "asset:specs/packcheck.spec.json")` → `Verifier.start/events/stop`; S08 live (preview, zone/box overlay, live checklist, coaching overlay + Android TTS), S09 result (verdict, reasons, steps, evidence frame, timeline summary). Empty-scene run on iQOO → UNVERIFIED (all NOT_OBSERVABLE); coaching "Show the box to the camera." fired after 3 s
 - [ ] **Needs a human:** print `fixtures/tags/*.png` (≥ 4 cm), tag the box (4 rim corners, floor, inside lid "open", lid top "closed"), charger, adapter AD-42, impostor and duplicate; run T-B01–B05 on the iQOO and log results in `docs/measurements/`
 
-## Phase 4: Sat noon: packs, HelloForge, SealSafe
-- [ ] Pack export/import (`.sfpkg`, `pack_sha256`, `models.lock` check)
-- [ ] HelloForge (two-line import)
-- [ ] SealSafe template authoring + state head (H2)
-- [ ] Receipts (+ verify-receipt)
+## Build-first plan (from Phase 4)
+**User decision 2026-10-10:** build the whole application first: every feature in the spec docs, every screen, every model slot loaded. Then the user supplies good/bad examples per use case (`docs/data-requirements.md`), and we train, calibrate and run acceptance. So the "T1 must pass before T2" gate moves to Phase 10. Phases 4–9 are **build** phases. Anything that needs real data is collected under Phase 10, not left as a blocker.
 
-## Phase 5: Sat afternoon: GATE
-- [ ] All T1 acceptance tests (T-B01–05, T-C01–06, T-S01–02) pass offline on the iQOO
-- [ ] One full rehearsal
+**Every build phase must also meet the UI/function bar:**
+- Screens follow `docs/ui-design.md` (screen content) and `docs/design.md` (tokens, components, accessibility checklist). No hard-coded colours. Light theme only.
+- **No dead UI:** every button, toggle and navigation path works end to end on the iQOO, or is visibly disabled with a reason ("Needs ≥ 5 samples", "Model not installed").
+- Empty, loading, error (typed error + fix hint) and permission-denied states exist for every screen.
+- Data paths are ready before data exists: capture → label → train/calibrate → test → export works with whatever examples are present, and refuses clearly when there are too few.
+- Each model sits behind the model registry (Phase 9): loads at start or on first use, logs runtime / provider / backend / latency, and shows a clear "not installed" state with its fallback if the file is missing.
+- Model files are downloaded only with the user's OK (name, source, size, licence first); record each one in the model stack.
 
-## Phase 6: Sat evening: RepRight + held-out data
-- [ ] RepRight (M3 pose)
-- [ ] Held-out recordings for PackCheck / CrashGuard / SealSafe
+## Phase 4: packs, receipts, HelloForge, SealSafe
+- [ ] Resolve the SealSafe blocker: proposed schema 3.0 addition, constraint `{"type":"AFTER_PARAM","step":"<id>","param":"start_time"}` (the step's evidence time must be ≥ the param value). Violation → `ORDER_VIOLATED`; param missing → `ContractError`. Confirm with the user, then add it to validator, engine and golden tests
+- [ ] `.sfpkg` export/import: manifest, spec, heads/, thresholds, regression, training.json, models.lock, assets; `pack_sha256`; models.lock hash check → `PerceptionStackMismatch` (fail closed); share via Sharesheet + app storage
+- [ ] Receipts: canonical JSON, `receipt_sha256`, verify-receipt ("receipt invalid" on any byte change); fill `VerifierResult.receiptPath`; S16 receipt screen
+- [ ] HelloForge: the two-line import, pack id + hash footer, typed errors (S19)
+- [ ] SealSafe: spec, M2 encoder integration (MediaPipe Image Embedder or equivalent, through the registry), H2 state head (intact/broken) capture + train UI, S13 screen
+- [ ] T-S01/T-S02 logic covered by JVM tests (on-device run moves to Phase 10)
 
-## Phase 7: Sat night: HandoverProof + spikes
-- [ ] HandoverProof (side zones, M4 hands)
-- [ ] Spike: RelateAnything (M5)
-- [ ] Spike: local LLM authoring (M6) + STT (M7)
-- [ ] Spike: Laya (O1)
+## Phase 5: Forge studio (authoring → capture → train → test → export) + shell screens
+- [ ] S01 Studio home (tiles for all apps + "Forge new verifier"), app navigation
+- [ ] S02 Describe: P0 template compiler (show X, open X, remove X from Y, only after T, hold for N seconds), editable step cards + JSON, example checklist
+- [ ] S03 Capture: record examples with labels (`valid|invalid|insufficient`, `missing_steps`), session split `dev|held_out`, per-class counts; **plus import of clips/recordings already on the phone** so supplied data drops straight in
+- [ ] Scoring (false accepts / false rejects / wrong_kind), order + requirement induction, threshold calibration (`ok|fragile|infeasible`), regression on every approved delta (S05)
+- [ ] S04 Train (any head type), approve/rollback; S06 Export → `.sfpkg`
+- [ ] S17 Backend log (from the model registry + measurement log), S18 Settings/Privacy (per-sensor consent, retention, delete-all, face blur in stored evidence)
+- [ ] Session JSONL logging (observations summary, decisions, backends, timings)
 
-## Phase 8: Sun morning: evidence + rehearsal
-- [ ] Measurement log complete (`docs/measurements/`)
-- [ ] Evidence slide (real numbers only)
-- [ ] Labelled backup video
-- [ ] ≥ 5 rehearsals (each wow moment ≥ 5× on real phone, poor lighting)
+## Phase 6: RepRight
+- [ ] M3 MediaPipe Pose Landmarker bundled offline (through the registry); angle smoothing, rep state machine, `joint_angle_in_range`, `pose_held`, `rep_completed`
+- [ ] Therapist config screen (knee extension angles/hold/tempo; tree pose); S14 screen; "Meets configured criteria" wording
+- [ ] JVM tests for T-P01–03 logic on synthetic landmark fixtures (labelled SIMULATION)
+
+## Phase 7: HandoverProof
+- [ ] M4 MediaPipe Hand Landmarker (registry); `held_by_hand`, `released`, `transferred(from_side,to_side)` via side zones
+- [ ] Step counter (`ACTIVITY_RECOGNITION` consent) → `steps_walked`; `at_location` recorded, never sole evidence; slip `code_read`
+- [ ] Host-supplied items list (`for_each`), S15 screen
+- [ ] M5 RelateAnything spike (ONNX Runtime, keyframes) behind the registry, with side-zone fallback
+
+## Phase 8: authoring models (P1 + optional)
+- [ ] M6 local LLM (Qwen3-4B or SmolLM2-1.7B-Instruct via Qualcomm Genie/GenieX) in Forge only, never during verification; invalid JSON → template compiler
+- [ ] M7 on-device STT (offline language pack) for voice authoring; TTS already used for coaching
+- [ ] O1 Laya (Forge step-typer only) if a model file is available, else marked omitted
+- [ ] Each: "not installed" state + fallback works without it
+
+## Phase 9: model readiness + UI polish/QA
+- [ ] Model registry: every model in the model stack listed with file, sha256, licence, size, runtime, expected backend, status (installed / missing / fallback); `models.lock` generated from it
+- [ ] M1 learned detector: integrate the fine-tuned detector from `tools/detector/` when trained; YOLOE via AI Hub if the user gets an export; tagged props stay the declared fallback
+- [ ] Warm-up and one timed run per installed model → `docs/measurements/measurement-log.md`
+- [ ] Full UI pass against the `docs/design.md` §8 checklist on every screen (contrast, 48 dp targets, 1.3× font, 360 dp width, TalkBack labels, status = colour + icon + text)
+- [ ] Click-through QA on the iQOO: every screen, every button, every state (empty / loading / error / permission denied / SIMULATION); fix every dead end
+- [ ] Airplane-mode run of the whole app with all bundled assets
+- [ ] Claims audit of all UI strings (prompts.md "Claims audit")
+
+## Phase 10: data, training, acceptance (user supplies data)
+- [ ] User captures/imports examples per `docs/data-requirements.md` (incl. the open Phase 2/3 human tasks: CrashGuard normal/shake/drop + held-out; PackCheck printed-tag runs; H1 genuine/impostor crops)
+- [ ] Train all heads (H1, H2, H3), fine-tune the detector if used, calibrate, regression; approve versions
+- [ ] Run every acceptance test on the iQOO in airplane mode: T-B01–05, T-C01–06, T-S01–02, T-P01–03, HandoverProof cases
+- [ ] Fill the measurement log with held-out results; fix failures
+
+## Phase 11: evidence + rehearsal
+- [ ] Evidence slide (real numbers only), labelled backup video
+- [ ] ≥ 5 rehearsals (each wow moment ≥ 5× on the real phone, poor lighting)
 
 ## Definition of done (finale)
 - [ ] T1 acceptance tests (T-B, T-C, T-S) pass on the iQOO in airplane mode.
@@ -121,8 +160,9 @@ Cut order if behind: Laya → RelateAnything → local LLM → HandoverProof →
 | 2026-10-10 | First state seen is `state_is`, not `state_change`: a box already open at start never "opened" (box_opened ABSENT) |
 | 2026-10-10 | Identity across tracks only from an equal instance code on a non-concurrent track; otherwise new identity + `identity_unresolved` to the latest ended (or jumped) track of that class |
 | 2026-10-10 | H1 uses a handcrafted crop embedding until an M2 encoder exists; labelled as such in UI and model stack |
+| 2026-10-10 | **Build-first:** the user asked to build every feature, screen and model slot before supplying data; the gate and acceptance move to Phase 10, and the open human data tasks move there too. Every build phase must meet the UI/function bar (design.md, no dead UI) |
 | 2026-10-10 | Post-peak stillness (§18) is measured from 0.25 s after the acceleration-magnitude peak (`SETTLE_NANOS`) so the impact tail is excluded |
 
 ## Blockers
-- SealSafe needs `state_change AFTER param start_time` (tech spec Part F) but §6 defines no AFTER/param constraint. Schema addition needed before Phase 4.
-- M1 learned detector + M2 encoder need model files (AI Hub export or fine-tune). Runtime decided: LiteRT + QNN. Tagged-prop fallback in use meanwhile.
+- SealSafe needs `state_change AFTER param start_time` (tech spec Part F) but §6 defines no AFTER/param constraint. Proposed `AFTER_PARAM` in Phase 4; the user must confirm.
+- Model files: MediaPipe pose/hands/embedder bundles can be downloaded with the user's OK. YOLOE (AGPL, AI Hub export), RelateAnything + DINOv3 weights (licence check), Qwen3-4B/SmolLM2 Genie bundles (large) and Laya (no source in the spec) need the user to obtain or approve them. Fallbacks per model stack §7 keep the app working without them. Runtime decided: LiteRT + QNN.

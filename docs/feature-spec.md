@@ -33,7 +33,8 @@ Everything runs **offline on the phone**: authoring, training, verification. All
 | Trusted contact (CrashGuard, opt-in) | Simulated alert preview in demo |
 
 ## App line-up
-**Tier rule:** T1 must pass all acceptance tests offline before any T2 work (hard gate: Saturday afternoon).
+**Tier rule (spec):** T1 must pass all acceptance tests offline before any T2 work.
+**Build-first override (user decision 2026-10-10):** every app is built first; all acceptance tests (T1 and T2) run in Phase 10 once real examples are supplied (`data-requirements.md`). If time runs short, T1 acceptance still comes first.
 
 | # | App | End-user value | Sensors | Mode | Tier |
 |---|---|---|---|---|---|

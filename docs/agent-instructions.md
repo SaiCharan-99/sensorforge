@@ -70,6 +70,14 @@ Never say "first" (prior art: Retrocausal, Roboflow, Drishti, viAct for factory 
 ## Honest limits (do not paper over)
 Visible surfaces only; look-alikes leaving view can't be proven identical (→ UNVERIFIED); few examples ≠ general reliability; markers needed for zones; CrashGuard is a prototype using replays for impacts; GPS indoors unreliable.
 
+## Build-phase bar (build-first plan)
+- Screens follow `ui-design.md` + `design.md`; run the `design.md` §8 checklist.
+- No dead UI: each control works on the iQOO, or is disabled with a visible reason.
+- Every screen has empty / loading / error (typed + fix hint) / permission-denied states.
+- Capture → label → train/calibrate → test → export paths work with whatever data exists and refuse clearly below minimums.
+- Every model: registry entry, logged backend/latency, "not installed" state, fallback per model stack §7.
+- Ask the user before downloading any model file (name, source, size, licence).
+
 ## Definition of done (finale)
 - [ ] T1 acceptance tests (T-B, T-C, T-S) pass on the iQOO in airplane mode.
 - [ ] Training changes weights hash; held-out metrics shown.
