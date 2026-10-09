@@ -1,5 +1,8 @@
 package com.application.sensorforge.crashguard
 
+import android.Manifest
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -71,6 +74,7 @@ fun ArmedCard(live: LiveUi, inc: IncidentUi, vm: CrashGuardViewModel) {
             style = MaterialTheme.typography.bodyMedium,
         )
         if (live.missing.isNotEmpty()) Text("CapabilityMissing: ${live.missing}", color = SfTheme.colors.fail.content)
+        LocationConsent(live.locationAllowed, vm)
         live.replaying?.let { SimulationChip("replaying $it") }
         Trace(live.accelG, live.gyroDps, vm.spec.gate.accelPeakG.toFloat())
         val last = inc.trace.lastOrNull()
@@ -79,6 +83,20 @@ fun ArmedCard(live: LiveUi, inc: IncidentUi, vm: CrashGuardViewModel) {
             "Play impact replay (SIMULATION)", enabled = armed && live.replaying == null,
             modifier = Modifier.fillMaxWidth(),
         ) { vm.playReplay(vm.model.replays.indices.random()) }
+    }
+}
+
+/** Separate consent for location (ui-design: ask per sensor). Evidence says LOCATION_NOT_AVAILABLE without it. */
+@Composable
+private fun LocationConsent(allowed: Boolean, vm: CrashGuardViewModel) {
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { vm.onLocationPermission() }
+    if (allowed) {
+        Text("Location: last fix added to incident evidence (GPS, offline)", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+    } else {
+        Text("Location is off. Incident evidence will say LOCATION_NOT_AVAILABLE.", style = MaterialTheme.typography.bodyMedium, color = SfTheme.colors.unverified.content)
+        SecondaryButton("Allow location for evidence", modifier = Modifier.fillMaxWidth()) {
+            launcher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
+        }
     }
 }
 

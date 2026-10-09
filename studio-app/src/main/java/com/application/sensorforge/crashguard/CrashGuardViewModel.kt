@@ -19,6 +19,7 @@ import com.application.sensorforge.sdk.detect.SensorObservation
 import com.application.sensorforge.sdk.detect.TraceEntry
 import com.application.sensorforge.sdk.detect.WindowFeatures
 import com.application.sensorforge.sdk.sensors.AndroidImuSource
+import com.application.sensorforge.sdk.sensors.LocationTracker
 import com.application.sensorforge.sdk.sensors.ReplaySource
 import com.application.sensorforge.sdk.train.TrainingError
 import com.application.sensorforge.sdk.train.TrainingReport
@@ -53,6 +54,7 @@ data class LiveUi(
     val missing: List<ImuChannel> = emptyList(),
     val accelG: List<Float> = emptyList(), val gyroDps: List<Float> = emptyList(),
     val replaying: String? = null,
+    val locationAllowed: Boolean = false,
 )
 
 data class IncidentUi(
@@ -70,7 +72,8 @@ class CrashGuardViewModel(app: Application) : AndroidViewModel(app) {
     private val buffer = ImuRingBuffer(spec.evidence.imuRingBufferS.toDouble())
     private val imu = AndroidImuSource(app, spec.window.imuHz)
     val model = ImuModel(app, spec)
-    private val controller = IncidentController(spec, null)
+    val location = LocationTracker(app)
+    private val controller = IncidentController(spec, null, locate = { location.lastFix() })
     private val log = IncidentLog(File(app.filesDir, "crashguard/incidents"))
     private val vibrator = app.getSystemService(Vibrator::class.java)
 
@@ -112,7 +115,7 @@ class CrashGuardViewModel(app: Application) : AndroidViewModel(app) {
                 _live.update {
                     it.copy(
                         accelHz = buffer.rateHz(ImuChannel.ACCEL), gyroHz = buffer.rateHz(ImuChannel.GYRO),
-                        rotHz = buffer.rateHz(ImuChannel.ROTATION), missing = imu.missingChannels,
+                        rotHz = buffer.rateHz(ImuChannel.ROTATION), missing = imu.missingChannels, locationAllowed = location.hasPermission(),
                         accelG = tail.filter { s -> s.channel == ImuChannel.ACCEL }.map { s -> (mag(s) / WindowFeatures.G).toFloat() },
                         gyroDps = tail.filter { s -> s.channel == ImuChannel.GYRO }.map { s -> (mag(s) * 57.2958).toFloat() },
                     )
@@ -126,18 +129,20 @@ class CrashGuardViewModel(app: Application) : AndroidViewModel(app) {
     fun onHidden() {
         visible = false
         source?.stop(); source = null
+        location.stop()
         ticker?.cancel(); buffer.clear()
         controller.disarm(now())
         _model.update { it.copy(recorder = null) }
         _live.update { it.copy(replaying = null) }
     }
 
-    fun arm() { controller.arm(now()); log("arm") }
-    fun disarm() = controller.disarm(now())
+    fun arm() { controller.arm(now()); location.start(); log("arm") }
+    fun disarm() { controller.disarm(now()); location.stop() }
+    fun onLocationPermission() { if (controller.state.value != IncidentState.DISARMED) location.start() }
     fun cancel() = controller.cancel(now())
     fun needHelp() = controller.needHelp(now())
     fun sendSimulatedSos() = controller.sendSimulatedSos(now())
-    fun resolve() { controller.resolve(now()); controller.arm(now()) }
+    fun resolve() { controller.resolve(now()); arm() }
 
     /** S10 "Play impact replay": swaps the live source for a SIMULATION replay, then back to live. */
     fun playReplay(index: Int) {
@@ -231,7 +236,7 @@ class CrashGuardViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun log(what: String) = Log.i(TAG, "$what (head=${_model.value.active?.let { "v$it" } ?: "none"})")
 
-    override fun onCleared() { source?.stop() }
+    override fun onCleared() { source?.stop(); location.stop() }
 
     companion object {
         const val TAG = "SF.CG"
