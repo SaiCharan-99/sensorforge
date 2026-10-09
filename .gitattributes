@@ -3,3 +3,6 @@
 *.png binary
 *.webp binary
 *.jar binary
+*.task binary
+*.tflite binary
+*.onnx binary

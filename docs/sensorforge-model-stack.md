@@ -190,3 +190,26 @@ github.com/google-deepmind/tapnet (Apache-2.0). Online point tracking with occlu
 4. H2 → SealSafe; pack export → HelloForge.
 5. **Gate.** Then M3 → RepRight; M4 (+M5 spike) → HandoverProof.
 6. M6/M7 authoring; O1, O2 last.
+
+---
+
+## 10. Model files in the build (rule 10 record, appended 2026-10-10)
+
+Bundled in `sf-sdk/src/main/assets/models/`. Source for the MediaPipe files: `https://storage.googleapis.com/mediapipe-models/<path>` (Google, Apache-2.0). Runtime: MediaPipe Tasks / LiteRT. Backend is logged per run.
+
+| Slot | File | Path (under mediapipe-models) | Bytes | sha256 | Fallback |
+|---|---|---|---|---|---|
+| M1 (current) | efficientdet_lite0.tflite | object_detector/efficientdet_lite0 | (added earlier) | (see registry) | tagged props (QR) |
+| M1 (upgrade) | efficientdet_lite2.tflite | object_detector/efficientdet_lite2/float32/latest | 23,096,891 | `ad2abbf2b4e10585e15176fd7b5ef03c28dda959ae26fc142549fdd1814db91d` | Lite0 → tagged props |
+| M2 | mobilenet_v3_large.tflite (Image Embedder) | image_embedder/mobilenet_v3_large/float32/latest | 10,889,458 | `11af3c560dfeed7737cb4c03c23bf52a8403020784192d4dea0b74862a12828d` | handcrafted crop embedding (labelled) |
+| M3 | pose_landmarker_heavy.task | pose_landmarker/pose_landmarker_heavy/float16/latest | 30,664,242 | `64437af838a65d18e5ba7a0d39b465540069bc8aae8308de3e318aad31fcbc7b` | drop RepRight (§7) |
+| M4 | hand_landmarker.task | hand_landmarker/hand_landmarker/float16/latest | 7,819,105 | `fbc2a30080c3c557093b5ddfc334698132eb341044ccee322ccf8bcf3607cde1` | side zones only |
+
+**Approved by the user, to be fetched in their phase** (confirm exact file + size at download, then add a row above):
+| Slot | What | Source / licence | Notes |
+|---|---|---|---|
+| M1 primary | YOLOE-11S, vocabulary fixed from the pack class list, exported to TFLite on the laptop | Ultralytics (pip + GitHub release weights), **AGPL**: hackathon OK, review before distribution | Laptop export via `tools/`; LiteRT + QNN/GPU on phone |
+| M5 | RelateAnything (~105 MB relation model) | github.com/Maelic/RelateAnything, Apache-2.0 | DINOv3 backbone weights are Meta licence-gated: **the user must accept that licence**; fallback side zones |
+| M6 | SmolLM2-1.7B-Instruct, 4-bit GGUF (~1 GB) | Hugging Face, Apache-2.0 | Runs on **llama.cpp** (CPU/GPU) because Genie needs a Qualcomm account; deviation from §5 "Integration" recorded here. Forge only. Too large for git: install to device storage, not assets |
+
+Not obtainable by the agent: Qwen3-4B Genie bundle (Qualcomm AI Hub account), Laya (no source given), M7 offline language pack (installed by the user in Android settings).
