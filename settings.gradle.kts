@@ -23,5 +23,7 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "sensorforge"
-include(":app")
+include(":sf-sdk")
+include(":studio-app")
+include(":hello-forge")
  
