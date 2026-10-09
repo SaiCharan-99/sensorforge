@@ -14,8 +14,8 @@ Cut order if behind: Laya → RelateAnything → local LLM → HandoverProof →
 
 ## Phase 1: Fri (Green Light): foundations
 - [ ] Pre-flight device checks (model stack §2):
-  - [ ] `adb shell getprop ro.soc.model` (SM8850 ⇒ Snapdragon 8 Elite Gen 5); record Android version, RAM
-  - [ ] Enumerate sensors: accelerometer, gyroscope, rotation vector, step counter, location providers
+  - [x] `adb shell getprop ro.soc.model` → SM8850 (Snapdragon 8 Elite Gen 5) ✔; Android 16 (SDK 36); RAM ~15.6 GB
+  - [x] Enumerate sensors: accelerometer, gyroscope, rotation vector, step counter, step detector, gps/fused/network location ✔
   - [ ] Confirm CameraX analysis resolution/fps
   - [ ] Run one AI Hub sample model and log its execution provider
   - [ ] Airplane-mode run of the empty app with bundled assets
@@ -72,10 +72,11 @@ Cut order if behind: Laya → RelateAnything → local LLM → HandoverProof →
 ## Device facts (fill on unit)
 | Field | Value |
 |---|---|
-| `ro.soc.model` | |
-| Android version | |
-| RAM | |
-| Sensors present | |
+| `ro.soc.model` | SM8850 (QTI) — Snapdragon 8 Elite Gen 5 |
+| Product model | I2501 (build PD2505F_EX_A_16.0.24.1.W30) |
+| Android version | 16 (SDK 36) |
+| RAM | 15,583,752 kB (~15.6 GB) |
+| Sensors present | Accelerometer (ST lsm6dsvx), gyroscope (vsen_gyro), rotation vector, step counter (pedometer), step detector (both need ACTIVITY_RECOGNITION), magnetometer; location providers gps, fused, network |
 | CameraX analysis res/fps | |
 
 ## Decisions log
