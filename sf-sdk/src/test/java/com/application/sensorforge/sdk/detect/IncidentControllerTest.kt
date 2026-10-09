@@ -140,4 +140,25 @@ class IncidentControllerTest {
         c.disarm(t + 1)
         assertEquals(COUNTDOWN, c.state.value)
     }
+
+    @Test fun thresholdModeUsesCalibratedPeakAndIgnoresHead() {
+        val r = replays.last()
+        val peak = ImuDataset.peakNanos(r.samples)!!
+        val peakG = r.samples.first { it.tNanos == peak && it.channel == ImuChannel.ACCEL }
+            .let { kotlin.math.sqrt((it.x * it.x + it.y * it.y + it.z * it.z).toDouble()) / WindowFeatures.G }
+        // a head that always says "shake" would reject; threshold mode must not consult it
+        val above = IncidentController(spec, trainedHead()).apply {
+            setSettings(DetectionSettings(DetectionSettings.Mode.THRESHOLD, peakG - 0.5)); arm(0)
+        }
+        run(above, r.samples, true)
+        assertEquals(COUNTDOWN, above.state.value)
+        assertTrue(above.trace.value.any { "threshold" in it.message && "calibrated" in it.message })
+
+        val below = IncidentController(spec, null).apply {
+            setSettings(DetectionSettings(DetectionSettings.Mode.THRESHOLD, peakG + 0.5)); arm(0)
+        }
+        run(below, r.samples, true)
+        assertTrue(below.state.value in setOf(ARMED, IncidentState.CANDIDATE))
+        assertTrue(below.trace.value.any { it.message.endsWith("[threshold rejected]") })
+    }
 }

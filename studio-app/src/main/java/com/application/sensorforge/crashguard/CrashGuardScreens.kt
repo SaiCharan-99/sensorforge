@@ -18,11 +18,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -37,6 +41,7 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.application.sensorforge.sdk.detect.DetectionSettings
 import com.application.sensorforge.sdk.detect.IncidentState
 import com.application.sensorforge.sdk.detect.IncidentState.*
 import com.application.sensorforge.ui.PrimaryButton
@@ -62,7 +67,7 @@ fun ArmedCard(live: LiveUi, inc: IncidentUi, vm: CrashGuardViewModel) {
             Column(Modifier.weight(1f)) {
                 Text("Motion Watch", style = MaterialTheme.typography.titleMedium)
                 Text(
-                    if (armed) "ARMED: motion sensors only, camera and mic off" else "DISARMED",
+                    if (armed) "ARMED: motion sensors only, no camera capture, mic off" else "DISARMED",
                     style = MaterialTheme.typography.bodyMedium, color = TextSecondary,
                 )
             }
@@ -83,6 +88,52 @@ fun ArmedCard(live: LiveUi, inc: IncidentUi, vm: CrashGuardViewModel) {
             "Play impact replay (SIMULATION)", enabled = armed && live.replaying == null,
             modifier = Modifier.fillMaxWidth(),
         ) { vm.playReplay(vm.model.replays.indices.random()) }
+    }
+}
+
+/** S10 detection mode: trained head or calibrated threshold (calibration, not training). */
+@Composable
+fun DetectionCard(inc: IncidentUi, model: ModelUi, vm: CrashGuardViewModel) {
+    val st = inc.settings
+    SfCard {
+        Text("Detection", style = MaterialTheme.typography.titleMedium)
+        listOf(
+            DetectionSettings.Mode.HEAD to "Trained model (H3)" + (model.active?.let { " v$it" } ?: ": none approved, threshold used"),
+            DetectionSettings.Mode.THRESHOLD to "Threshold (calibrated)",
+        ).forEach { (m, label) ->
+            Row(
+                Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                    .selectable(st.mode == m, role = Role.RadioButton) { vm.setSettings(st.copy(mode = m)) },
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                RadioButton(st.mode == m, null)
+                Text(label, style = MaterialTheme.typography.bodyLarge)
+            }
+        }
+        Text("Impact threshold: %.1f g".format(st.impactG), style = MaterialTheme.typography.bodyLarge)
+        Slider(
+            value = st.impactG.toFloat(), onValueChange = { vm.setSettings(st.copy(impactG = (Math.round(it * 2) / 2.0))) },
+            valueRange = 3f..16f, steps = 25,
+        )
+        Text(
+            "An incident needs peak ≥ threshold and the phone still for %.0f s after (motion under %.2f g).".format(
+                vm.spec.corroboration.postEventStillnessS, vm.spec.corroboration.stillnessMaxGStd),
+            style = MaterialTheme.typography.bodyMedium, color = TextSecondary,
+        )
+        if (model.peaks.isNotEmpty()) {
+            Text("Peaks in your recordings", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+            model.peaks.toSortedMap().forEach { (label, g) ->
+                val over = g >= st.impactG
+                Text(
+                    "%-7s max %.1f g%s".format(label, g, if (over) "  ≥ threshold (stillness must reject it)" else ""),
+                    style = MonoStyle, color = if (over) SfTheme.colors.unverified.content else TextPrimary,
+                )
+            }
+        }
+        Text(
+            "Alarm on detection: ${if (vm.hasTorch) "flashlight blink, " else ""}alarm sound, vibration. Nothing is sent.",
+            style = MaterialTheme.typography.bodyMedium, color = TextSecondary,
+        )
     }
 }
 
@@ -147,6 +198,7 @@ fun CountdownScreen(inc: IncidentUi, vm: CrashGuardViewModel) {
             "${inc.countdownLeftS}", style = CountdownStyle, color = TextPrimary,
             modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
         )
+        if (inc.alarmOn) StatusChip("alarm on: flashlight, sound, vibration", SfTheme.colors.info, "!")
         Text("Simulated SOS options appear when this reaches 0. Nothing is sent.", style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center, color = TextPrimary)
         Spacer(Modifier.weight(1f))
         Button(
@@ -208,6 +260,10 @@ fun EvidenceScreen(inc: IncidentUi, vm: CrashGuardViewModel) {
             Text("Decision trace", style = MaterialTheme.typography.titleMedium)
             inc.trace.forEach { t -> Text("${t.state}  ${t.message}", style = MaterialTheme.typography.bodyMedium) }
         }
+        if (inc.alarmOn) Button(
+            vm::silenceAlarm, Modifier.fillMaxWidth().height(56.dp), shape = RoundedCornerShape(12.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+        ) { Text("Silence alarm", style = MaterialTheme.typography.labelLarge) }
         if (inc.state == EVIDENCE_SAVED) PrimaryButton("Send simulated SOS") { vm.sendSimulatedSos() }
         if (inc.state in setOf(CANCELLED, EVIDENCE_SAVED, SOS_SIMULATED)) SecondaryButton("Resolve and re-arm", modifier = Modifier.fillMaxWidth()) { vm.resolve() }
     }

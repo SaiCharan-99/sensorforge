@@ -27,6 +27,16 @@ object MockIncidentTransport : IncidentTransport {
     override fun send(evidence: IncidentEvidence) = TransportResult.SIMULATED
 }
 
+/**
+ * How a candidate is decided. HEAD uses the trained IMU risk head (falls back to THRESHOLD when no head
+ * is active). THRESHOLD is a calibrated rule: peak |a| ≥ [impactG] plus post-event stillness. Threshold
+ * values are calibration, not training (rule 3).
+ */
+@Serializable
+data class DetectionSettings(val mode: Mode = Mode.HEAD, val impactG: Double = 4.5) {
+    enum class Mode { HEAD, THRESHOLD }
+}
+
 @Serializable
 data class LocationFix(val lat: Double, val lon: Double, val accuracyM: Float, val ageMs: Long)
 
@@ -37,7 +47,7 @@ data class IncidentEvidence(
     val peakNanos: Long,
     val peakG: Double,
     val features: List<Float>,
-    val decidedBy: String,                 // "head imu_risk v3 <sha>" or "rule-based triage (no head)"
+    val decidedBy: String,                 // "head imu_risk v3 <sha>" or "threshold 4.5 g (calibrated)"
     val impactProb: Double?,
     val classProbs: Map<String, Double>,
     val postPeakStdG: Double,
@@ -82,7 +92,11 @@ class IncidentController(
 
     val countdownNanos get() = spec.incident.countdownS * 1_000_000_000L
 
+    private var settings = DetectionSettings(impactG = spec.gate.accelPeakG * 1.5)
+
     @Synchronized fun setHead(h: Head?) { head = h }
+
+    @Synchronized fun setSettings(s: DetectionSettings) { settings = s }
 
     @Synchronized fun arm(now: Long) {
         if (_state.value != IncidentState.DISARMED && _state.value != IncidentState.RESOLVED) return
@@ -171,7 +185,7 @@ class IncidentController(
         }
         val still = f[WindowFeatures.NAMES.indexOf("post_peak_acc_std")].toDouble()
         val stillOk = still <= spec.corroboration.stillnessMaxGStd
-        val h = head
+        val h = head.takeIf { settings.mode == DetectionSettings.Mode.HEAD }
         val probs: Map<String, Double>
         val pImpact: Double?
         val decidedBy: String
@@ -183,16 +197,17 @@ class IncidentController(
             headOk = pImpact >= spec.head.minProb
             decidedBy = "head ${h.id} v${h.version} ${h.sha256().take(12)}"
         } else {
-            probs = emptyMap(); pImpact = null; decidedBy = "rule-based triage (no head)"
-            // Fallback (model stack §8): stricter gate, 1.5× the configured peak, plus stillness.
-            headOk = peakMag >= spec.gate.accelPeakG * 1.5
+            probs = emptyMap(); pImpact = null
+            decidedBy = "threshold %.1f g (calibrated)".format(settings.impactG) +
+                if (settings.mode == DetectionSettings.Mode.HEAD) ", no head active" else ""
+            headOk = peakMag >= settings.impactG
         }
         val summary = "peak %.1f g, post-peak std %.3f g (max %.2f), %s%s".format(
             peakMag, still, spec.corroboration.stillnessMaxGStd, decidedBy,
             pImpact?.let { ", p(${spec.head.positiveClass})=%.2f (min %.2f)".format(it, spec.head.minProb) } ?: "",
         )
         if (!(headOk && stillOk)) {
-            val cls = if (h != null) "head" else "rule"
+            val cls = if (h != null) "head" else "threshold"
             back(evalAt, "no incident: $summary" + when {
                 !headOk && !stillOk -> " [$cls + stillness rejected]"
                 !headOk -> " [$cls rejected]"

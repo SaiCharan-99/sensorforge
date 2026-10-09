@@ -2,13 +2,12 @@ package com.application.sensorforge.crashguard
 
 import android.app.Application
 import android.os.SystemClock
-import android.os.VibrationEffect
-import android.os.Vibrator
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.application.sensorforge.sdk.contracts.Contracts
 import com.application.sensorforge.sdk.contracts.Validator
+import com.application.sensorforge.sdk.detect.DetectionSettings
 import com.application.sensorforge.sdk.detect.ImuChannel
 import com.application.sensorforge.sdk.detect.ImuRingBuffer
 import com.application.sensorforge.sdk.detect.ImuSample
@@ -33,6 +32,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.Json
 import java.io.File
 import kotlin.math.sqrt
 
@@ -47,6 +47,8 @@ data class ModelUi(
     val versions: List<Int> = emptyList(),
     val active: Int? = null,
     val latest: TrainingReport? = null,
+    /** Max |a| (g) per class over the live recordings, shown next to the threshold slider. */
+    val peaks: Map<String, Double> = emptyMap(),
 )
 
 data class LiveUi(
@@ -64,6 +66,8 @@ data class IncidentUi(
     val trace: List<TraceEntry> = emptyList(),
     val evidence: IncidentEvidence? = null,
     val evidenceFile: String? = null,
+    val alarmOn: Boolean = false,
+    val settings: DetectionSettings = DetectionSettings(),
 )
 
 class CrashGuardViewModel(app: Application) : AndroidViewModel(app) {
@@ -75,7 +79,9 @@ class CrashGuardViewModel(app: Application) : AndroidViewModel(app) {
     val location = LocationTracker(app)
     private val controller = IncidentController(spec, null, locate = { location.lastFix() })
     private val log = IncidentLog(File(app.filesDir, "crashguard/incidents"))
-    private val vibrator = app.getSystemService(Vibrator::class.java)
+    private val alarm = Alarm(app, viewModelScope)
+    private val settingsFile = File(app.filesDir, "crashguard/detection.json")
+    private var settings = loadSettings()
 
     private val _model = MutableStateFlow(ModelUi())
     val modelUi: StateFlow<ModelUi> = _model.asStateFlow()
@@ -87,9 +93,9 @@ class CrashGuardViewModel(app: Application) : AndroidViewModel(app) {
     private var visible = false
     private var source: SensorObservation? = null
     private var ticker: Job? = null
-    private var lastBuzzS = -1
 
     init {
+        controller.setSettings(settings)
         refresh()
         viewModelScope.launch { while (isActive) { incidentTick(); delay(200) } }
     }
@@ -163,7 +169,11 @@ class CrashGuardViewModel(app: Application) : AndroidViewModel(app) {
             val start = controller.trace.value.last { it.state == IncidentState.COUNTDOWN }.tNanos
             ((start + controller.countdownNanos - t + 999_999_999) / 1_000_000_000).toInt().coerceAtLeast(0)
         } else 0
-        if (st == IncidentState.COUNTDOWN && left != lastBuzzS) { lastBuzzS = left; buzz() }
+        when (st) {
+            IncidentState.COUNTDOWN -> alarm.start()
+            in ALARM_KEEPS_RINGING -> Unit // keeps ringing after timeout / help until silenced or resolved
+            else -> alarm.stop()
+        }
         val ev = controller.evidence.value
         val prev = _incident.value
         var file = prev.evidenceFile
@@ -175,10 +185,27 @@ class CrashGuardViewModel(app: Application) : AndroidViewModel(app) {
         val trace = controller.trace.value
         val fresh = if (trace.size >= prev.trace.size && trace.take(prev.trace.size) == prev.trace) trace.drop(prev.trace.size) else trace
         fresh.forEach { Log.i(TAG, "${it.state}: ${it.message}") }
-        _incident.value = IncidentUi(st, controller.simulation, left, trace, ev, file)
+        _incident.value = IncidentUi(st, controller.simulation, left, trace, ev, file, alarm.active, settings)
     }
 
-    private fun buzz() = runCatching { vibrator?.vibrate(VibrationEffect.createOneShot(80, VibrationEffect.DEFAULT_AMPLITUDE)) }
+    fun silenceAlarm() = alarm.stop()
+    val hasTorch get() = alarm.hasTorch
+
+    /** Calibration (not training): stored settings, applied immediately. */
+    fun setSettings(s: DetectionSettings) {
+        if (s == settings) return
+        settings = s
+        controller.setSettings(s)
+        runCatching {
+            settingsFile.parentFile?.mkdirs()
+            settingsFile.writeText(Json.encodeToString(DetectionSettings.serializer(), s))
+        }
+        Log.i(TAG, "detection settings: mode=${s.mode} impactG=%.1f".format(s.impactG))
+    }
+
+    private fun loadSettings(): DetectionSettings =
+        runCatching { Json.decodeFromString(DetectionSettings.serializer(), settingsFile.readText()) }
+            .getOrDefault(DetectionSettings(impactG = spec.gate.accelPeakG * 1.5))
 
     fun setHeldOut(v: Boolean) = _model.update { it.copy(heldOutNext = v) }
 
@@ -228,18 +255,24 @@ class CrashGuardViewModel(app: Application) : AndroidViewModel(app) {
             val (counts, versions, active) = withContext(Dispatchers.IO) {
                 Triple(model.counts(model.examples()), model.heads.versions(), model.heads.active())
             }
+            val peaks = withContext(Dispatchers.IO) {
+                model.recordings.list().groupBy { it.label }.mapValues { (_, rs) ->
+                    rs.maxOf { r -> r.samples.filter { it.channel == ImuChannel.ACCEL }.maxOfOrNull { mag(it) / WindowFeatures.G } ?: 0.0 }
+                }
+            }
             val latest = versions.maxOrNull()?.let { withContext(Dispatchers.IO) { model.heads.report(it) } }
             controller.setHead(active?.let { withContext(Dispatchers.IO) { model.heads.load(it) } })
-            _model.update { it.copy(counts = counts, versions = versions, active = active, latest = latest) }
+            _model.update { it.copy(counts = counts, versions = versions, active = active, latest = latest, peaks = peaks) }
         }
     }
 
     private fun log(what: String) = Log.i(TAG, "$what (head=${_model.value.active?.let { "v$it" } ?: "none"})")
 
-    override fun onCleared() { source?.stop(); location.stop() }
+    override fun onCleared() { source?.stop(); location.stop(); alarm.stop() }
 
     companion object {
         const val TAG = "SF.CG"
+        val ALARM_KEEPS_RINGING = setOf(IncidentState.CONFIRMED, IncidentState.TIMEOUT, IncidentState.EVIDENCE_SAVED, IncidentState.SOS_SIMULATED)
         val RECORD_SECONDS = mapOf("normal" to 15, "shake" to 8, "drop" to 8)
         private fun now() = SystemClock.elapsedRealtimeNanos()
         private fun mag(s: ImuSample) = sqrt((s.x * s.x + s.y * s.y + s.z * s.z).toDouble())

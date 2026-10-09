@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import com.application.sensorforge.crashguard.ArmedCard
 import com.application.sensorforge.crashguard.CountdownScreen
 import com.application.sensorforge.crashguard.CrashGuardViewModel
+import com.application.sensorforge.crashguard.DetectionCard
 import com.application.sensorforge.crashguard.EvidenceScreen
 import com.application.sensorforge.crashguard.ModelCard
 import com.application.sensorforge.crashguard.isIncidentScreen
@@ -49,6 +50,7 @@ class MainActivity : ComponentActivity() {
                             ) {
                                 Text("CrashGuard", style = MaterialTheme.typography.headlineLarge)
                                 ArmedCard(live, inc, crashGuard)
+                                DetectionCard(inc, model, crashGuard)
                                 ModelCard(model, crashGuard)
                             }
                         }

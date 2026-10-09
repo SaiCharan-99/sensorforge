@@ -81,7 +81,7 @@ fun ModelCard(ui: ModelUi, vm: CrashGuardViewModel) {
         }
 
         if (ui.versions.isNotEmpty()) {
-            Text("Active: ${ui.active?.let { "v$it" } ?: "none (rule-based gate only)"}", style = MaterialTheme.typography.bodyLarge)
+            Text("Active: ${ui.active?.let { "v$it" } ?: "none (threshold mode used)"}", style = MaterialTheme.typography.bodyLarge)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 val newest = ui.versions.last()
                 if (ui.active != newest) SecondaryButton("Approve v$newest") { vm.promote(newest) }
