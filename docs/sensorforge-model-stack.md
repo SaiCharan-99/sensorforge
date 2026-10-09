@@ -91,6 +91,7 @@ Pose/hand/face landmarks are **MediaPipe**, not OpenCV.
 | Id | Built with | Source / licence / size | Runtime | Fallback / note |
 |---|---|---|---|---|
 | M1 | **Tagged props** (QR tag per prop, payload `SF1\|OBJ\|cls\|code`), the declared fallback. Claim: "controlled props" | `com.google.zxing:core:3.5.3`, Maven Central, Apache-2.0, ~550 KB | JVM, CPU | YOLOE/fine-tuned detector still needs a model file; runtime decided: LiteRT + QNN, GPU then CPU |
+| M1 (learned) | MediaPipe EfficientDet-Lite0 float32 (COCO 80 classes), `sf-sdk/src/main/assets/models/efficientdet_lite0.tflite`, sha256 `40338edf…bf58` | storage.googleapis.com/mediapipe-models, Apache-2.0, 13.8 MB | MediaPipe Tasks 0.10.21 (TFLite), GPU delegate, CPU fallback | COCO has cell phone but no box/envelope/cable/seal: fine-tune with MediaPipe Model Maker on our props |
 | C1 zones | QR corner markers + floor marker instead of ArUco + homography (quad in image space) | same ZXing | CPU | ArUco needs OpenCV; not added |
 | C2 codes | ZXing core `QRCodeMultiReader` (Java, not zxing-cpp) | same | CPU | none |
 | C3 tracker | Greedy per-class association, constant-velocity alpha-beta filter (fixed-gain Kalman), code-proven re-id | in repo | CPU | none |

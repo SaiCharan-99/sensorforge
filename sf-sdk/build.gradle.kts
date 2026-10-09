@@ -13,6 +13,8 @@ android {
         minSdk = 26
     }
 
+    androidResources { noCompress += "tflite" }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
@@ -26,6 +28,7 @@ dependencies {
     implementation(libs.camerax.lifecycle)
     api(libs.camerax.view)
     implementation(libs.zxing.core)
+    implementation(libs.mediapipe.tasks.vision)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     testImplementation(libs.junit)
 }

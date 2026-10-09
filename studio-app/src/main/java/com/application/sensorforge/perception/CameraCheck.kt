@@ -17,6 +17,8 @@ import androidx.camera.view.PreviewView
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -37,7 +39,10 @@ import com.application.sensorforge.ui.SfCard
 import java.util.concurrent.Executors
 
 /** Live analysis stats: frame size, rotation and measured fps over the last second. */
-data class AnalysisStats(val width: Int = 0, val height: Int = 0, val rotation: Int = 0, val fps: Double = 0.0, val frames: Long = 0)
+data class AnalysisStats(
+    val width: Int = 0, val height: Int = 0, val rotation: Int = 0, val fps: Double = 0.0, val frames: Long = 0,
+    val dets: List<com.application.sensorforge.sdk.perception.Detection> = emptyList(), val detMs: Double = 0.0, val backend: String = "",
+)
 
 /**
  * Camera check (Phase 1 leftover): CameraX Preview + ImageAnalysis with
@@ -71,6 +76,7 @@ private fun CameraPreview() {
 
     DisposableEffect(owner) {
         val executor = Executors.newSingleThreadExecutor()
+        var detector: com.application.sensorforge.sdk.camera.MpObjectDetector? = null
         val providerFuture = ProcessCameraProvider.getInstance(ctx)
         var provider: ProcessCameraProvider? = null
         providerFuture.addListener({
@@ -89,14 +95,19 @@ private fun CameraPreview() {
             var count = 0L
             analysis.setAnalyzer(executor) { img ->
                 try {
+                    val det = detector ?: com.application.sensorforge.sdk.camera.MpObjectDetector(ctx).also { detector = it }
+                    val rot = img.imageInfo.rotationDegrees
+                    val raw = img.toBitmap()
+                    val upright = if (rot == 0) raw else android.graphics.Bitmap.createBitmap(raw, 0, 0, raw.width, raw.height,
+                        android.graphics.Matrix().apply { postRotate(rot.toFloat()) }, true)
+                    val dets = det.detect(upright)
                     val now = SystemClock.elapsedRealtimeNanos()
                     stamps.addLast(now); count++
                     while (stamps.isNotEmpty() && now - stamps.first() > 1_000_000_000L) stamps.removeFirst()
-                    if (count % 15 == 0L) {
-                        val s = AnalysisStats(img.width, img.height, img.imageInfo.rotationDegrees, stamps.size.toDouble(), count)
-                        stats = s
-                        Log.i(TAG, "analysis ${s.width}x${s.height} rot=${s.rotation} fps=${s.fps} frames=${s.frames}")
-                    }
+                    val s = AnalysisStats(img.width, img.height, rot, stamps.size.toDouble(), count, dets, det.lastMs, det.backend)
+                    stats = s
+                    if (count % 15 == 0L) Log.i(TAG, "analysis ${s.width}x${s.height} rot=${s.rotation} fps=${s.fps} M1 ${det.backend} ${"%.1f".format(det.lastMs)} ms: " +
+                        dets.joinToString { "${it.cls} %.2f".format(it.confidence) })
                 } finally {
                     img.close()
                 }
@@ -106,15 +117,32 @@ private fun CameraPreview() {
         }, ContextCompat.getMainExecutor(ctx))
         onDispose {
             provider?.unbindAll()
+            executor.execute { detector?.close() }
             executor.shutdown()
         }
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        AndroidView({ previewView }, Modifier.fillMaxWidth().aspectRatio(3f / 4f))
+        androidx.compose.foundation.layout.Box(Modifier.fillMaxWidth().aspectRatio(3f / 4f)) {
+            AndroidView({ previewView.apply { scaleType = PreviewView.ScaleType.FILL_CENTER } }, Modifier.fillMaxWidth().aspectRatio(3f / 4f))
+            androidx.compose.foundation.Canvas(Modifier.fillMaxWidth().aspectRatio(3f / 4f)) {
+                for (d in stats.dets) {
+                    val tl = androidx.compose.ui.geometry.Offset(d.box.l * size.width, d.box.t * size.height)
+                    drawRect(androidx.compose.ui.graphics.Color(0xFF4F5BD5), tl,
+                        androidx.compose.ui.geometry.Size(d.box.w * size.width, d.box.h * size.height),
+                        style = androidx.compose.ui.graphics.drawscope.Stroke(5f))
+                }
+            }
+            Column(Modifier.padding(8.dp)) {
+                stats.dets.forEach {
+                    Text("${it.cls} ${"%.0f".format(it.confidence * 100)}%", color = androidx.compose.ui.graphics.Color.White,
+                        modifier = Modifier.background(androidx.compose.ui.graphics.Color(0xAA1C2430)).padding(4.dp))
+                }
+            }
+        }
         Text(
             if (stats.frames == 0L) "Waiting for frames…"
-            else "LIVE analysis ${stats.width}×${stats.height}, rot ${stats.rotation}°, ${"%.0f".format(stats.fps)} fps (${stats.frames} frames)",
+            else "LIVE ${stats.width}×${stats.height}, ${"%.0f".format(stats.fps)} fps · EfficientDet-Lite0 (COCO) on ${stats.backend}: ${"%.0f".format(stats.detMs)} ms",
             style = MaterialTheme.typography.bodyMedium,
         )
     }

@@ -12,6 +12,7 @@ kotlinxSerialization = "1.9.0"
 kotlinxCoroutines = "1.10.2"
 camerax = "1.5.1"
 zxing = "3.5.3"
+mediapipe = "0.10.21"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -34,6 +35,7 @@ camerax-core = { group = "androidx.camera", name = "camera-camera2", version.ref
 camerax-lifecycle = { group = "androidx.camera", name = "camera-lifecycle", version.ref = "camerax" }
 camerax-view = { group = "androidx.camera", name = "camera-view", version.ref = "camerax" }
 zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxing" }
+mediapipe-tasks-vision = { group = "com.google.mediapipe", name = "tasks-vision", version.ref = "mediapipe" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
