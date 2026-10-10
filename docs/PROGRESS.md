@@ -3,8 +3,8 @@
 Phases 0–3 followed tech spec §30. From Phase 4 the plan is **build-first** (user decision, see "Build-first plan"): build every feature and model slot (4–9), then data, training and acceptance (10), then rehearsal (11).
 If time runs out, the spec's cut order still applies: Laya → RelateAnything → local LLM → HandoverProof → RepRight.
 
-**Current stage:** Stage A (build), A1–A10 done; **next A11** (authoring models: M6 SmolLM2, M7 STT, O1 Laya). Runbook: `docs/WORKFLOW.md`, trigger `build all`.
-**Last updated:** 2026-10-10 (A10 done; resume with `continue build` at A11)
+**Current stage:** Stage A (build), A1–A11 done; **next A12** (M1 primary: YOLOE-11S laptop export → registry). Runbook: `docs/WORKFLOW.md`, trigger `build all`.
+**Last updated:** 2026-10-10 (A11 done; resume with `continue build` at A12)
 
 ## Session handoff (read this first in a new session)
 - **Last session:** A3 done 2026-10-10 (guided Forge flow, see A3 log). Next: A5 PackCheck complete (M1 detector chain, M2 embedder + H1, coaching, moved into the guided flow).
@@ -177,6 +177,8 @@ _Filled during the run._
 ## Questions for user (decisions taken by default during the run)
 - SealSafe start-time rule implemented as `AFTER_PARAM` (proposed; not yet confirmed by the user). Needs a new `time` parameter type (UTC epoch ms) and `Timeline.start_utc_ms`; missing either is a `ContractError`.
 
+- M6 SmolLM2: should I add a llama.cpp NDK build (large, slow) and download the 1 GB GGUF? Default taken: no, template fallback only.
+
 ## A1 log
 - `AFTER_PARAM` in contracts/validator/expander/engine + `fixtures/specs/sealsafe.spec.json` + `SealSafeSpecTest` (8 tests).
 - `sdk/models/ModelCatalog` (pure: all model-stack slots, hashes, licences, fallbacks, `models.lock`, fail-closed `check`), `sdk/runtime/ModelRegistry` (live status per slot), `BackendLog` (JSONL, summaries, airplane flag), detector wired to it.
@@ -247,3 +249,9 @@ _Filled during the run._
 - `HandoverProofTest` (13 tests, SIMULATION): valid PASS, not handed FAIL, taken back FAIL, left frame UNVERIFIED, wrong slip FAIL, slip missing FAIL, too few steps FAIL, no step sensor UNVERIFIED, location never sole evidence, unusable frames, determinism, for_each expansion.
 - Device (iQOO): hands on GPU 38-53 ms at 17-21 fps; empty scene -> UNVERIFIED (all NOT_OBSERVABLE). **Not verified:** a real hand-over with tags (Stage D).
 - **M5 RelateAnything:** not installed (needs the user's DINOv3 licence acceptance); side zones are the declared fallback and the UI says so. No Forge flow (no head to train), same decision as RepRight.
+
+## A11 log
+- `sdk/forge/Authoring` (pure): prompt, balanced-JSON extraction, parse + `Validator`, any failure falls back to `TemplateCompiler` ("guided authoring"); `LlmBackend` interface for M6. `AuthoringTest` (5 tests) covers prose/fenced JSON, invalid JSON, thrown errors, no LLM.
+- **M6 gap:** no llama.cpp native runtime is bundled and the ~1 GB GGUF is not installed, so the LLM path is never active; Describe says so and uses templates. Gate "8/10 sentences valid offline" is not met (claim stays "guided authoring"). Question for user below.
+- **M7:** `forge/VoiceInput` (on-device `SpeechRecognizer`, API 31+, offline preferred, user taps Speak, RECORD_AUDIO asked on first tap, nothing stored); Settings mic row updated. Not exercised with real speech (needs the offline language pack).
+- **O1 Laya:** omitted, shown as such. Session log `forge.compile` records source.

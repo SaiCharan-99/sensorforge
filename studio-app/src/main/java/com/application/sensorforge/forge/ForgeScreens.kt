@@ -154,7 +154,20 @@ private fun DescribePage(vm: ForgeViewModel, ui: ForgeUi) {
         Text("Describe it in a sentence", style = MaterialTheme.typography.titleMedium)
         Text("Offline template compiler: show X, open X, remove X from Y, read the X label CODE, at most one X, never show X, only after start.", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
         OutlinedTextField(ui.sentence, vm::setSentence, Modifier.fillMaxWidth(), label = { Text("Procedure sentence") }, minLines = 2)
-        SecondaryButton("Compile sentence", enabled = ui.sentence.isNotBlank()) { vm.compileSentence() }
+        val ctx = LocalContext.current
+        var voiceState by remember { mutableStateOf<String?>(null) }
+        val voice = remember { VoiceInput(ctx, { vm.setSentence(it) }, { voiceState = it }) }
+        androidx.compose.runtime.DisposableEffect(Unit) { onDispose { voice.stop() } }
+        val micPerm = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { if (it) voice.start() else voiceState = "Microphone permission denied. Type the sentence instead." }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            SecondaryButton("Compile sentence", enabled = ui.sentence.isNotBlank()) { vm.compileSentence() }
+            SecondaryButton("Speak", enabled = voice.available) {
+                if (ContextCompat.checkSelfPermission(ctx, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) voice.start() else micPerm.launch(Manifest.permission.RECORD_AUDIO)
+            }
+        }
+        voiceState?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = TextSecondary) }
+        if (!voice.available) Text("Voice input (M7) unavailable: no on-device recognizer on this phone.", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+        Text("Local LLM (M6): not active, no native runtime bundled. Guided authoring (templates) is used. Laya (O1): omitted.", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
         ui.draftNotes.forEach { Text("• $it", style = MaterialTheme.typography.bodyMedium) }
     }
     SecondaryButton(if (ui.showJson) "Hide JSON" else "Edit JSON") { vm.toggleJson() }

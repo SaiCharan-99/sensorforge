@@ -136,11 +136,13 @@ class ForgeViewModel(app: Application) : AndroidViewModel(app) {
     fun compileSentence() {
         val s = session ?: return
         val cur = s.project.procedure()
+        // M6 runs only if a native llama.cpp runtime is bundled (none yet): the template compiler is the declared fallback.
+        val r = com.application.sensorforge.sdk.forge.Authoring.author(cur.procedureId, _ui.value.sentence, cur.version + 1, null)
+        val text = Contracts.json.encodeToString(ProcedureSpec.serializer(), r.spec)
         val d = TemplateCompiler.compile(cur.procedureId, _ui.value.sentence, version = cur.version + 1)
-        val withSchema = d.spec.copy(parameters = d.spec.parameters)
-        val text = Contracts.json.encodeToString(ProcedureSpec.serializer(), withSchema)
-        _ui.update { it.copy(draftText = text, draftNotes = d.warnings + d.clauses.map { c -> "'${c.text}' → ${c.stepIds.joinToString().ifEmpty { "nothing" }}" + (c.note?.let { n -> " ($n)" } ?: "") }, draftErrors = s.project.check(text), deltas = null) }
-        msg("Compiled with the offline template compiler (deterministic). Review the cards, then check and approve.")
+        _ui.update { it.copy(draftText = text, draftNotes = r.notes + d.clauses.map { c -> "'${c.text}' → ${c.stepIds.joinToString().ifEmpty { "nothing" }}" + (c.note?.let { n -> " ($n)" } ?: "") }, draftErrors = s.project.check(text), deltas = null) }
+        log("forge.compile", "use_case" to s.def.id, "source" to r.source.name)
+        msg("Compiled with the offline template compiler (guided authoring, deterministic). Review the cards, then check and approve.")
     }
 
     fun resetDraft() = _ui.update { it.copy(draftText = it.specText, draftErrors = emptyList(), deltas = null, draftNotes = emptyList()) }

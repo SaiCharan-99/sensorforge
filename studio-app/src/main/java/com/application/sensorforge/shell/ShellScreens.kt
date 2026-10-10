@@ -120,7 +120,7 @@ fun SettingsScreen(onBack: () -> Unit, onDeleted: () -> Unit) {
             SensorRow("Camera", "Used only while a verify screen or capture is open and visible. Never in the background.", granted(Manifest.permission.CAMERA))
             SensorRow("Location", "CrashGuard evidence only, while armed and visible; GPS plus cached fixes, no network.", granted(Manifest.permission.ACCESS_FINE_LOCATION))
             SensorRow("Motion sensors", "Accelerometer, gyroscope, rotation vector. Used while CrashGuard is armed and visible.", true, "no permission needed")
-            SensorRow("Microphone", "Not used. The app does not request it.", false, "never requested")
+            SensorRow("Microphone", "Forge Describe only: the Speak button, on-device recognizer, while the screen is open. Never in verification, never recorded or stored.", granted(Manifest.permission.RECORD_AUDIO))
             SecondaryButton("Open system permissions") {
                 ctx.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", ctx.packageName, null)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             }
