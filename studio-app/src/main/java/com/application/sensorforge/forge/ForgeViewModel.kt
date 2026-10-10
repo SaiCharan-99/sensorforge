@@ -276,6 +276,30 @@ class ForgeViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** Imports a video already on the phone: runs the live perception path over it and stores the timeline as a REAL example. */
+    fun importClip(uri: Uri, itemId: String) {
+        val s = session ?: return
+        val item = _ui.value.plan?.items?.firstOrNull { it.id == itemId } ?: return
+        val label = item.label ?: return err("Plan item '${item.title}' has no label; only run items can import clips.")
+        _ui.update { it.copy(busy = true) }
+        viewModelScope.launch {
+            try {
+                val r = withContext(Dispatchers.Default) { s.importClip(uri) }
+                val n = s.project.exampleFiles().count { it.planItemId == itemId }
+                val split = if (_ui.value.heldOutNext) Split.HELD_OUT else Split.DEV
+                s.project.addExample(
+                    ExampleFile("clip-$itemId-$n", itemId, label, split, "clip-$itemId-${split.name.lowercase()}", false, emptyMap(),
+                        item.stepId?.takeIf { item.kind != com.application.sensorforge.sdk.forge.PlanKind.GOOD }?.let { listOf(it) } ?: emptyList(),
+                        java.time.Instant.now().toString(), r.timeline),
+                )
+                log("forge.import_clip", "use_case" to s.def.id, "item" to itemId, "frames" to r.frames, "usable" to r.usableFrames, "detector" to r.detector)
+                msg("Imported clip as '${item.title}' (${split.name.lowercase()}): ${r.usableFrames}/${r.frames} usable frames, detector ${r.detector}.")
+            } catch (e: Exception) { err("Clip import failed (${e::class.simpleName}): ${e.message}") }
+            _ui.update { it.copy(busy = false) }
+            refresh()
+        }
+    }
+
     fun setPlanItemLabel(exampleId: String, label: com.application.sensorforge.sdk.forge.ExampleLabel) { session?.project?.relabel(exampleId, label = label); refresh() }
     fun examples() = session?.project?.exampleFiles().orEmpty()
     fun deleteExample(id: String) { session?.project?.deleteExample(id); refresh() }

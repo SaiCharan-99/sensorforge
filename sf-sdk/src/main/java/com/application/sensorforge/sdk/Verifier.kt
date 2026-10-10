@@ -40,7 +40,7 @@ data class VerifierResult(
 )
 
 /** Overlay geometry in upright, normalised image coordinates. */
-data class OverlayBox(val trackId: String, val cls: String, val l: Float, val t: Float, val r: Float, val b: Float, val code: String?, val confidence: Double)
+data class OverlayBox(val trackId: String, val cls: String, val l: Float, val t: Float, val r: Float, val b: Float, val code: String?, val confidence: Double, val source: String = "tag")
 
 sealed interface VerifierEvent {
     /** Per analysed frame. `aspect` = upright width / height of the analysis image. */

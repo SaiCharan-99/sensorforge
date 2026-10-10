@@ -73,6 +73,12 @@ class ForgeSession internal constructor(private val context: Context, val def: U
 
     fun isSetUp() = File(project.root, "setup_done").exists()
 
+    /** Imports a video from the phone as a real (not simulated) timeline through the live perception path. */
+    fun importClip(uri: android.net.Uri, onProgress: (Float) -> Unit = {}): com.application.sensorforge.sdk.camera.ClipImporter.Result {
+        val head = def.heads.firstOrNull { it.capture == CaptureKind.CROP }?.let { headStore(it.headId).let { st -> st.active()?.let { v -> st.load(v) } } }
+        return com.application.sensorforge.sdk.camera.ClipImporter(app, project.procedure(), head).run(uri, onProgress = onProgress)
+    }
+
     /** Exports the active spec, approved heads, thresholds, regression and models.lock as `.sfpkg`. */
     fun exportPack(): ExportResult {
         val warnings = mutableListOf<String>()
@@ -89,7 +95,7 @@ class ForgeSession internal constructor(private val context: Context, val def: U
         training.append('}')
         val profile = if (project.isDetect()) listOf("sensors") else def.profile ?: TemplateCompiler.profileOf(project.procedure())
         val sensors = if (project.isDetect()) def.sensors.filter { it != "location" || true } else def.sensors
-        val lock = registry.lockOf(def.models)
+        val lock = registry.lockOf(def.models.map { if (it.startsWith("m2_")) com.application.sensorforge.sdk.camera.Embedders.best(app).modelId else it })
         if (!project.isDetect()) {
             val s = project.score()
             if (s.dev.n + s.heldOut.n == 0) warnings += "No examples were tested: this pack has no regression evidence."

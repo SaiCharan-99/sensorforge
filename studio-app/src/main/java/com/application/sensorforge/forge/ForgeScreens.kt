@@ -248,6 +248,7 @@ private fun CapturePage(vm: ForgeViewModel, ui: ForgeUi, cg: CrashGuardViewModel
     var capturing by remember { mutableStateOf<String?>(null) }
     var pickItem by remember { mutableStateOf<String?>(null) }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let { u -> pickItem?.let { vm.importTimeline(u, it) } } }
+    val clipPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let { u -> pickItem?.let { vm.importClip(u, it) } } }
     val model by cg.modelUi.collectAsState()
 
     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -280,6 +281,7 @@ private fun CapturePage(vm: ForgeViewModel, ui: ForgeUi, cg: CrashGuardViewModel
             when (item.capture) {
                 CaptureKind.RUN -> FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     SecondaryButton("Record live") { onRun(item.id) }
+                    SecondaryButton("Import video", enabled = !ui.busy) { pickItem = item.id; clipPicker.launch(arrayOf("video/*")) }
                     SecondaryButton("Import JSON") { pickItem = item.id; picker.launch(arrayOf("application/json", "*/*")) }
                     SecondaryButton("Simulate ×3") { vm.simulateItem(item.id, 3) }
                 }

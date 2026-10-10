@@ -30,6 +30,7 @@ import com.application.sensorforge.sdk.contracts.Timeline
 import com.application.sensorforge.sdk.engine.VerifyEngine
 import com.application.sensorforge.sdk.perception.Coach
 import com.application.sensorforge.sdk.perception.Detection
+import com.application.sensorforge.sdk.perception.Learned
 import com.application.sensorforge.sdk.perception.Tags
 import com.application.sensorforge.sdk.perception.TimelineBuilder
 import com.application.sensorforge.sdk.train.Head
@@ -54,6 +55,8 @@ internal class CameraVerifier(
     private val identityHead: Head?,
     private val outDir: File,
     private val params: Map<String, List<String>> = emptyMap(),
+    /** Catalog ids the pack was frozen with (models.lock); empty for a bare spec. */
+    private val lockedModels: Set<String> = emptySet(),
 ) : Verifier {
     private val events = MutableSharedFlow<VerifierEvent>(extraBufferCapacity = 64, onBufferOverflow = BufferOverflow.DROP_OLDEST)
     private var executor: ExecutorService? = null
@@ -82,6 +85,12 @@ internal class CameraVerifier(
         evidence.clear()
         val coach = Coach(spec)
         val reader = TagFrameReader()
+        val embedder = Embedders.forLock(context, lockedModels)
+        val head = identityHead?.takeIf { h -> (h.inputDim == embedder.dim).also { ok -> if (!ok) Log.w(TAG, "identity head dim ${h.inputDim} != encoder ${embedder.modelId} dim ${embedder.dim}: head ignored, tags decide") } }
+        val specClasses = (spec.entities.map { it.cls } + spec.prohibited.filterIsInstance<com.application.sensorforge.sdk.contracts.ForbiddenClass>().map { it.cls }).toSet()
+        val chain = DetectorChain.open(context)
+        var learned: List<Detection> = emptyList()
+        var learnedAtNs = 0L
         val exec = Executors.newSingleThreadExecutor().also { executor = it }
         previewView.scaleType = PreviewView.ScaleType.FIT_CENTER
         running = true
@@ -107,8 +116,13 @@ internal class CameraVerifier(
                 if (!running) return@setAnalyzer
                 val now = SystemClock.elapsedRealtimeNanos()
                 val f = reader.read(image)
-                val head = identityHead
-                val obs = Tags.observe(now, index++, f.codes, f.quality) { d -> classify(head, d, f) }
+                // M1 (learned) runs at most ~5 Hz; its boxes are reused until the next run.
+                if (chain != null && f.quality.usable() && now - learnedAtNs > 200_000_000L) {
+                    learned = try { chain.detector.detect(f.colorBitmap(512)) } catch (e: Exception) { Log.w(TAG, "detector failed: ${e.message}"); emptyList() }
+                    learnedAtNs = now
+                } else if (now - learnedAtNs > 700_000_000L) learned = emptyList()
+                val tagObs = Tags.observe(now, index++, f.codes, f.quality) { d -> classify(head, embedder, d, f) }
+                val obs = if (learned.isEmpty()) tagObs else tagObs.copy(detections = Learned.merge(tagObs.detections, learned, specClasses))
                 val before = b.primitiveCount
                 b.add(obs)
                 if (b.primitivesFrom(before).any { obs.index in it.evidenceFrames }) saveEvidence(clipDir, obs.index, f.thumbnail())
@@ -117,6 +131,8 @@ internal class CameraVerifier(
                 decodeMs.addLast(f.decodeMs); if (decodeMs.size > 30) decodeMs.removeFirst()
                 val boxes = b.activeTracks.filter { b.nowS - it.tLast < 0.3 }.map {
                     OverlayBox(it.trackId, it.cls, it.box.l, it.box.t, it.box.r, it.box.b, it.code, it.confidence)
+                } + learned.filter { Learned.normalise(it.cls) !in specClasses }.mapIndexed { i, d ->
+                    OverlayBox("L$i", Learned.normalise(d.cls), d.box.l, d.box.t, d.box.r, d.box.b, null, d.confidence, source = "learned")
                 }
                 events.tryEmit(
                     VerifierEvent.Frame(boxes, b.zones.mapValues { it.value.pts }, f.aspect, f.quality.usable(), stamps.size.toDouble(), f.decodeMs)
@@ -128,7 +144,8 @@ internal class CameraVerifier(
                         "decode p50 %.1f ms p95 %.1f ms, %d fps, luma %.0f sharp %.0f".format(
                             sorted[sorted.size / 2], sorted[(sorted.size * 95 / 100).coerceAtMost(sorted.size - 1)], stamps.size,
                             f.quality.brightness, f.quality.sharpness,
-                        ) + (head?.let { ", identity head v${it.version} (CPU, ${it.classes})" } ?: "")
+                        ) + (head?.let { ", identity head v${it.version} (CPU, ${it.classes}) on ${embedder.modelId}" } ?: "") +
+                        (chain?.let { ", detector ${it.modelId} ${it.detector.backend} %.0f ms".format(it.detector.lastMs) } ?: ", detector: none (tags only)")
                     Log.i(TAG, line)
                     events.tryEmit(VerifierEvent.Backend(line))
                 }
@@ -183,9 +200,9 @@ internal class CameraVerifier(
         onResult?.invoke(VerifierResult(decision.verdict, decision.reasons, decision.steps, timeline, evidence.toMap(), receipt.absolutePath))
     }
 
-    private fun classify(head: Head?, d: Detection, f: TagFrameReader.Frame): Detection {
+    private fun classify(head: Head?, embedder: CropEmbedder, d: Detection, f: TagFrameReader.Frame): Detection {
         if (head == null || d.cls !in head.classes) return d
-        val x = f.embed(identityCrop(d.box)) ?: return d
+        val x = embedder.embed(f, identityCrop(d.box)) ?: return d
         val p = head.predict(x)
         val best = p.indices.maxBy { p[it] }
         return d.copy(cls = head.classes[best], confidence = p[best].toDouble())

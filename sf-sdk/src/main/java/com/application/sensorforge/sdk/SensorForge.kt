@@ -41,7 +41,8 @@ object SensorForge {
             id = spec.procedureId, version = spec.version, mode = spec.mode,
             sha256 = resolved.sha256, perceptionStack = Tags.STACK, stepIds = spec.steps.map { it.id },
         )
-        return CameraVerifier(context, spec, info, head, File(app.filesDir, "verify/${spec.procedureId}"), lists)
+        val locked = resolved.pack?.contents?.lock?.models?.map { it.id }?.toSet().orEmpty()
+        return CameraVerifier(context, spec, info, head, File(app.filesDir, "verify/${spec.procedureId}"), lists, locked)
     }
 
     /** Receipt (tech spec §24) read back from disk: fields for S16 and the recomputed validity. */

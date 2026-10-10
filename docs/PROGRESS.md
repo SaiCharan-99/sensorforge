@@ -3,8 +3,8 @@
 Phases 0–3 followed tech spec §30. From Phase 4 the plan is **build-first** (user decision, see "Build-first plan"): build every feature and model slot (4–9), then data, training and acceptance (10), then rehearsal (11).
 If time runs out, the spec's cut order still applies: Laya → RelateAnything → local LLM → HandoverProof → RepRight.
 
-**Current stage:** Stage A (build), A1–A4 done; **next A5** (PackCheck complete). Runbook: `docs/WORKFLOW.md`, trigger `build all`.
-**Last updated:** 2026-10-10 (A4 done; resume with `continue build` at A5)
+**Current stage:** Stage A (build), A1–A5 done; **next A6** (CrashGuard complete). Runbook: `docs/WORKFLOW.md`, trigger `build all`.
+**Last updated:** 2026-10-10 (A5 done; resume with `continue build` at A6)
 
 ## Session handoff (read this first in a new session)
 - **Last session:** A3 done 2026-10-10 (guided Forge flow, see A3 log). Next: A5 PackCheck complete (M1 detector chain, M2 embedder + H1, coaching, moved into the guided flow).
@@ -213,3 +213,8 @@ _Filled during the run._
 - `sdk/runtime/SessionLog`: `files/logs/session-<date>.jsonl` (forge approve/train/export/save_live, verify.result, crashguard.*). Summaries only.
 - S16 receipt already shown from the verify result (A2).
 - Device-verified: custom "Pill box" verifier created → plan → simulated → test (27 examples, no false accepts) → exported; backend log and settings render; session log line written.
+
+## A5 log
+- `camera/DetectorChain` (M1: EfficientDet-Lite2 → Lite0 → tagged props, via registry/BackendLog), `perception/Learned.merge` (learned boxes merged with tag detections; `LearnedTest`), `camera/Embedders` (M2 MobileNet-V3 embedder if installed, else YUV histogram; examples tied to the encoder; head dim mismatch → head ignored, tags decide), `CameraVerifier` runs M1 at ~5 Hz and draws learned boxes (`OverlayBox.source`).
+- `camera/ClipImporter`: video on the phone → timeline through the same perception path (REAL example, not simulation); Forge Capture has **Import video** per run item (`ForgeViewModel.importClip`, session log `forge.import_clip`).
+- Verified: build, `:sf-sdk:test` pass, installs and launches on the iQOO with no crash. **Not yet verified:** an import of a real clip (needs a video on the phone) and detector latency numbers; both go to Stage B/D.

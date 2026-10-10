@@ -40,7 +40,7 @@ internal fun identityCrop(tagBox: BBox): BBox {
 }
 
 @Serializable
-data class IdentityExample(val x: List<Float>, val label: String, val session: String, val heldOut: Boolean, val simulation: Boolean = false)
+data class IdentityExample(val x: List<Float>, val label: String, val session: String, val heldOut: Boolean, val simulation: Boolean = false, val embedding: String = CropEmbedding.NAME)
 
 /**
  * Identity head (H1) authoring: capture crop embeddings of a tagged object under a label
@@ -54,8 +54,14 @@ class IdentityForge(context: Context, val headId: String, val tagClass: String, 
     private val examplesFile = File(app.filesDir, "heads/$headId/examples.json")
     private val json = Json { ignoreUnknownKeys = true }
 
-    fun examples(): List<IdentityExample> =
+    /** M2 encoder in use (MobileNet embedder if installed, else the histogram); examples are tied to it. */
+    val embedder: CropEmbedder = Embedders.best(app)
+
+    private fun allExamples(): List<IdentityExample> =
         if (examplesFile.exists()) json.decodeFromString(ListSerializer(IdentityExample.serializer()), examplesFile.readText()) else emptyList()
+
+    /** Examples captured with the current encoder (others are kept on disk but not used). */
+    fun examples(): List<IdentityExample> = allExamples().filter { it.embedding == embedder.name }
 
     fun counts(): Map<String, Pair<Int, Int>> = classes.associateWith { c ->
         val e = examples().filter { it.label == c }; e.count { !it.heldOut } to e.count { it.heldOut }
@@ -65,7 +71,7 @@ class IdentityForge(context: Context, val headId: String, val tagClass: String, 
 
     fun simulatedCount() = examples().count { it.simulation }
 
-    fun clearSimulated() { save(examples().filter { !it.simulation }) }
+    fun clearSimulated() { save(allExamples().filter { !it.simulation }) }
 
     /**
      * SIMULATION crops: synthetic embeddings (class-specific histogram shapes + noise), never
@@ -75,16 +81,24 @@ class IdentityForge(context: Context, val headId: String, val tagClass: String, 
         require(label in classes)
         val idx = classes.indexOf(label)
         val rng = java.util.Random(label.hashCode().toLong() * 31 + examples().size)
+        val proto = FloatArray(embedder.dim).also { p -> val pr = java.util.Random(idx * 7919L + 13); for (i in p.indices) p[i] = pr.nextGaussian().toFloat() }
         val session = "sim-${label}-${if (heldOut) "held" else "dev"}-${System.currentTimeMillis()}"
         val out = List(count) {
-            val v = FloatArray(CropEmbedding.DIM) { d ->
-                val peak = ((d % CropEmbedding.BINS) - (2 + idx * 3)).toFloat()
-                (kotlin.math.exp(-(peak * peak) / 4f) + rng.nextGaussian().toFloat() * 0.05f).coerceAtLeast(0f)
+            if (embedder.modelId == "m2_yuv_hist") {
+                val v = FloatArray(CropEmbedding.DIM) { d ->
+                    val peak = ((d % CropEmbedding.BINS) - (2 + idx * 3)).toFloat()
+                    (kotlin.math.exp(-(peak * peak) / 4f) + rng.nextGaussian().toFloat() * 0.05f).coerceAtLeast(0f)
+                }
+                val sum = v.sum().coerceAtLeast(1e-6f)
+                IdentityExample(v.map { it / sum }, label, session, heldOut, simulation = true, embedding = embedder.name)
+            } else {
+                // Synthetic unit vectors: a class prototype plus noise (SIMULATION, not real crops).
+                val v = FloatArray(embedder.dim) { d -> proto[d] + rng.nextGaussian().toFloat() * 0.6f }
+                val norm = kotlin.math.sqrt(v.sumOf { (it * it).toDouble() }).toFloat().coerceAtLeast(1e-6f)
+                IdentityExample(v.map { it / norm }, label, session, heldOut, simulation = true, embedding = embedder.name)
             }
-            val sum = v.sum().coerceAtLeast(1e-6f)
-            IdentityExample(v.map { it / sum }, label, session, heldOut, simulation = true)
         }
-        save(examples() + out)
+        save(allExamples() + out)
         return out.size
     }
 
@@ -116,14 +130,14 @@ class IdentityForge(context: Context, val headId: String, val tagClass: String, 
                 for (c in f.codes) {
                     val tag = Tags.parse(c.text) as? Tag.Obj ?: continue
                     if (tag.cls != tagClass) continue
-                    f.embed(identityCrop(BBox.around(c.points, 1.4f)))?.let { got += IdentityExample(it.toList(), label, session, heldOut, false) }
+                    embedder.embed(f, identityCrop(BBox.around(c.points, 1.4f)))?.let { got += IdentityExample(it.toList(), label, session, heldOut, false, embedding = embedder.name) }
                 }
                 if (SystemClock.elapsedRealtime() - t0 > seconds * 1000) {
                     done = true
                     ContextCompat.getMainExecutor(app).execute {
                         future.get().unbind(preview, analysis)
                         exec.shutdown()
-                        if (got.isNotEmpty()) save(examples() + got)
+                        if (got.isNotEmpty()) save(allExamples() + got)
                         Log.i(TAG, "captured ${got.size} '$label' examples (held-out=$heldOut)")
                         onDone(got.size)
                     }
@@ -143,7 +157,7 @@ class IdentityForge(context: Context, val headId: String, val tagClass: String, 
         val (head, report) = HeadTrainer.train(
             headId = store.headId, classes = classes, data = data,
             config = TrainConfig(hidden = 8, epochs = 150), parent = parent, version = store.nextVersion(),
-            datasetVersion = "${CropEmbedding.NAME}:${data.size}", trainedAt = Instant.now().toString(),
+            datasetVersion = "${embedder.name}:${data.size}", trainedAt = Instant.now().toString(),
             deviceFingerprint = "${Build.MANUFACTURER} ${Build.MODEL} ${socModel()}",
             clockMillis = { SystemClock.elapsedRealtime() },
         )

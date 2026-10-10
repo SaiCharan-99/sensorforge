@@ -66,6 +66,43 @@ class TagFrameReader {
             }
         }
 
+        /** Colour pixel (ARGB) at an image-space position. */
+        private fun argb(x: Int, y: Int): Int {
+            val xi = x.coerceIn(0, width - 1); val yi = y.coerceIn(0, height - 1)
+            val u = image.planes[1]; val v = image.planes[2]
+            val Y = luma[yi * width + xi].toInt() and 0xFF
+            val U = (u.buffer.get((yi / 2) * u.rowStride + (xi / 2) * u.pixelStride).toInt() and 0xFF) - 128
+            val V = (v.buffer.get((yi / 2) * v.rowStride + (xi / 2) * v.pixelStride).toInt() and 0xFF) - 128
+            val r = (Y + 1.402f * V).toInt().coerceIn(0, 255)
+            val g = (Y - 0.344f * U - 0.714f * V).toInt().coerceIn(0, 255)
+            val b = (Y + 1.772f * U).toInt().coerceIn(0, 255)
+            return (0xFF shl 24) or (r shl 16) or (g shl 8) or b
+        }
+
+        /** Upright colour render of the (normalised) region [box] at [ow] x [oh] (nearest neighbour). Valid only during analysis. */
+        fun render(box: BBox, ow: Int, oh: Int): Bitmap {
+            val px = IntArray(ow * oh)
+            for (j in 0 until oh) for (i in 0 until ow) {
+                val (x, y) = unrotate(Pt(box.l + (i + 0.5f) / ow * box.w, box.t + (j + 0.5f) / oh * box.h))
+                px[j * ow + i] = argb(x, y)
+            }
+            return Bitmap.createBitmap(px, ow, oh, Bitmap.Config.ARGB_8888)
+        }
+
+        /** Whole frame, upright, longest side [maxSide]. */
+        fun colorBitmap(maxSide: Int = 512): Bitmap {
+            val w = if (aspect >= 1f) maxSide else (maxSide * aspect).toInt()
+            val h = if (aspect >= 1f) (maxSide / aspect).toInt() else maxSide
+            return render(BBox(0f, 0f, 1f, 1f), w.coerceAtLeast(8), h.coerceAtLeast(8))
+        }
+
+        /** Square colour crop around [box] for the image encoder (M2). */
+        fun cropBitmap(box: BBox, side: Int = 224): Bitmap? {
+            val b = BBox(box.l.coerceIn(0f, 1f), box.t.coerceIn(0f, 1f), box.r.coerceIn(0f, 1f), box.b.coerceIn(0f, 1f))
+            if (b.w * width < 8 || b.h * height < 8) return null
+            return render(b, side, side)
+        }
+
         /** Grayscale upright thumbnail (for evidence frames). */
         fun thumbnail(maxSide: Int = 360): Bitmap {
             val step = maxOf(1, maxOf(width, height) / maxSide)
@@ -121,6 +158,9 @@ class TagFrameReader {
         270 -> Pt(y / h, 1 - x / w)
         else -> Pt(x / w, y / h)
     }
+
+    /** Quality of an arbitrary luma plane (used by clip import). */
+    fun qualityOf(l: ByteArray, w: Int, h: Int): FrameQuality = quality(l, w, h)
 
     private fun quality(l: ByteArray, w: Int, h: Int, step: Int = 4): FrameQuality {
         var sum = 0.0; var n = 0
