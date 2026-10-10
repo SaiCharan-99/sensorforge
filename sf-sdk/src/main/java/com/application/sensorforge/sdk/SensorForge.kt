@@ -45,6 +45,20 @@ object SensorForge {
         return CameraVerifier(context, spec, info, head, File(app.filesDir, "verify/${spec.procedureId}"), lists, locked)
     }
 
+    /**
+     * RepRight (M3): a verifier for a therapist-configured exercise (knee extension reps or tree pose hold).
+     * Needs the Pose Landmarker model (model stack M3); throws [CapabilityMissing] if it is not installed.
+     */
+    fun repRight(context: Context, config: com.application.sensorforge.sdk.pose.RepConfig): Verifier {
+        val app = context.applicationContext
+        val st = com.application.sensorforge.sdk.runtime.ModelRegistry.get(app).state("m3_pose_heavy")
+        if (!st.usable) throw CapabilityMissing("Pose model 'm3_pose_heavy' is not installed (${st.status}). RepRight is unavailable without it.")
+        val spec = com.application.sensorforge.sdk.pose.RepSpecs.of(config)
+        val specText = Contracts.json.encodeToString(com.application.sensorforge.sdk.contracts.ProcedureSpec.serializer(), spec)
+        val info = PackInfo(spec.procedureId, spec.version, spec.mode, sha256((specText + config.toString()).toByteArray()), com.application.sensorforge.sdk.pose.RepAnalyzer.STACK, spec.steps.map { it.id })
+        return com.application.sensorforge.sdk.camera.PoseVerifier(app, config, spec, info, st.entry.file!!, File(app.filesDir, "verify/${spec.procedureId}"))
+    }
+
     /** Receipt (tech spec §24) read back from disk: fields for S16 and the recomputed validity. */
     data class ReceiptView(val fields: List<Pair<String, String>>, val verification: com.application.sensorforge.sdk.pack.ReceiptVerification, val json: String)
 

@@ -126,6 +126,7 @@ class PackCheckViewModel(app: Application) : AndroidViewModel(app) {
                             _ui.value = _ui.value.copy(coaching = e.prompt)
                             if (ttsReady) tts?.speak(e.prompt.message, TextToSpeech.QUEUE_FLUSH, null, e.prompt.stepId)
                         }
+                        is VerifierEvent.Pose -> Unit
                         is VerifierEvent.Backend -> _ui.value = _ui.value.copy(backend = e.line)
                     }
                 }

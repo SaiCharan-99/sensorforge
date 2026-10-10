@@ -58,6 +58,9 @@ sealed interface VerifierEvent {
 
     data class Coaching(val prompt: CoachingPrompt) : VerifierEvent
 
+    /** Pose landmarks (upright normalised; null = no person) with per-point visibility and the rep/hold state (RepRight, S14). */
+    data class Pose(val points: List<Pt>?, val visibility: List<Float>?, val live: com.application.sensorforge.sdk.pose.RepLive) : VerifierEvent
+
     /** Backend log line (rule 4): runtime, provider, backend, latency. */
     data class Backend(val line: String) : VerifierEvent
 }

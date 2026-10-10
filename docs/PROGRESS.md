@@ -3,8 +3,8 @@
 Phases 0–3 followed tech spec §30. From Phase 4 the plan is **build-first** (user decision, see "Build-first plan"): build every feature and model slot (4–9), then data, training and acceptance (10), then rehearsal (11).
 If time runs out, the spec's cut order still applies: Laya → RelateAnything → local LLM → HandoverProof → RepRight.
 
-**Current stage:** Stage A (build), A1–A8 done; **next A9** (RepRight). Runbook: `docs/WORKFLOW.md`, trigger `build all`.
-**Last updated:** 2026-10-10 (A8 done; resume with `continue build` at A9)
+**Current stage:** Stage A (build), A1–A9 done; **next A10** (HandoverProof). Runbook: `docs/WORKFLOW.md`, trigger `build all`.
+**Last updated:** 2026-10-10 (A9 done; resume with `continue build` at A10)
 
 ## Session handoff (read this first in a new session)
 - **Last session:** A3 done 2026-10-10 (guided Forge flow, see A3 log). Next: A5 PackCheck complete (M1 detector chain, M2 embedder + H1, coaching, moved into the guided flow).
@@ -168,6 +168,7 @@ If time runs out, the spec's cut order still applies: Laya → RelateAnything �
 | 2026-10-10 | Every use case gets a guided Describe → **Plan** → Capture → Train → Test → Export → Import flow. Plan is a dedicated step that shows the example checklist (tech spec §16.2) with counts, held-out sessions and how-to; capture is driven by it |
 | 2026-10-10 | Model downloads approved by the user: MediaPipe bundles (pose heavy, hands, MobileNet-V3-large embedder, EfficientDet-Lite2: downloaded to `sf-sdk/src/main/assets/models/`, hashes in model stack §10), YOLOE-11S (AGPL), SmolLM2-1.7B on llama.cpp (deviation from Genie), RelateAnything (DINOv3 licence for the user to accept). Sessions still confirm exact file + size at download time |
 | 2026-10-10 | **One-shot workflow** (`docs/WORKFLOW.md`): no phase-by-phase sessions; `build all` runs milestones A1–A13 and the simulation test, then hands over for the user's real-data tests. Decisions are defaulted and queued as questions, not blocking |
+| 2026-10-10 | RepRight: angle/hold/tempo are therapist config checked by `RepAnalyzer`, not spec fields; the spec only requires `rep_completed rep_k` in order while the body is in view. Only valid reps are numbered, so extra bad attempts do not break the count. No guided Forge flow (nothing to train) |
 | 2026-10-10 | Post-peak stillness (§18) is measured from 0.25 s after the acceleration-magnitude peak (`SETTLE_NANOS`) so the impact tail is excluded |
 
 ## Stage B results (simulation test)
@@ -232,3 +233,10 @@ _Filled during the run._
 - `hello-forge` (S19): choose a `.sfpkg` (copied to app files), optional `start_time`, Start/Stop, big verdict text, reasons, error text with the typed exception, footer `pack id vN · sha256 · perception stack`. The core is two SDK calls (`SensorForge.load`, `Verifier.start`); only the public API is used.
 - **Bug found and fixed:** Android's `ZipInputStream` rejected a valid pack ("invalid entry size") that the JVM accepted. `Pack.readZip` now reads through the central directory with `Inflater`, checks CRC32, caps entry size (64 MB) and bounds offsets. `tamperedBytesRejected` now flips every 7th byte: each flip is rejected or leaves the content hash unchanged.
 - Device-verified: SealSafe pack imported into HelloForge shows `pack sealsafe v1 · sha256 55cb2041…`; missing `start_time` shows `ContractException`. **Not verified:** a live camera run in HelloForge (needs camera permission tap + tags).
+
+## A9 log
+- Pure `sdk/pose/`: `RepConfig` (therapist config: exercise, side, reps, angle range, hold, tempo window, rest threshold), `RepAnalyzer` (angle from landmarks with aspect correction, EMA smoothing, rep state machine, tree-pose hold; names the exact missed criterion, e.g. "tempo: too fast, 1.9 s, needs at least 3.0 s"; keypoints lost mid-rep discards the attempt and closes the observability window), `RepSpecs` (validated verify specs: `rep_completed` rep_1..N for knee extension, `joint_angle_in_range` + `pose_held` for tree pose, BEFORE chain).
+- `camera/PoseVerifier` (M3, MediaPipe Pose Landmarker heavy, GPU then CPU, latency in BackendLog) behind `SensorForge.repRight(context, config)`; throws `CapabilityMissing` if the model is not installed. New `VerifierEvent.Pose`. Receipt written at stop.
+- `RepRightTest` (10 tests, SIMULATION stick-figure landmarks): T-P01 valid (3 reps PASS), T-P02 too fast / partial / short hold (FAIL, named criterion), T-P03 keypoints lost (UNVERIFIED), low visibility, tree pose held PASS / never bent FAIL, determinism.
+- studio-app: home tile, therapist config card, S14 live screen (preview, skeleton, angle bar with target range, rep count, hold timer, feedback, "Meets configured criteria" wording), result screen with receipt. The thresholds live in config; no Forge flow for RepRight (nothing to train: no head), logged as a decision.
+- Device (iQOO): pose heavy on GPU, 27-70 ms warm per frame at ~14-23 fps (SF.BACKEND log); empty scene -> "No person found", Stop -> UNVERIFIED with REQUIRED_NOT_OBSERVABLE for all reps (rule 5). **Not verified:** real reps with a person (Stage D); back camera used (phone on a stand pointing at the user).

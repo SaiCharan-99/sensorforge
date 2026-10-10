@@ -53,6 +53,7 @@ import com.application.sensorforge.ui.theme.TextSecondary
 
 class MainActivity : ComponentActivity() {
     private val crashGuard: CrashGuardViewModel by viewModels()
+    private val repRight: com.application.sensorforge.repright.RepRightViewModel by viewModels()
     private val packCheck: PackCheckViewModel by viewModels()
     private val forge: ForgeViewModel by viewModels()
 
@@ -97,6 +98,7 @@ class MainActivity : ComponentActivity() {
                 )
             }
             "run" -> RunScreen(id!!, parts.getOrNull(2), go)
+            "repright" -> com.application.sensorforge.repright.RepRightScreen(repRight) { go("home") }
             "backend" -> BackendLogScreen { go("home") }
             "settings" -> SettingsScreen({ go("home") }, { forge.close() })
             "camera" -> Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -120,6 +122,12 @@ class MainActivity : ComponentActivity() {
                     StatusChip(if (def.mode == "detect") "Detect · sensors" else "Verify · camera", SfTheme.colors.info, if (def.mode == "detect") "∿" else "◉")
                     PrimaryButton("Open ${def.title}") { go("uc:${def.id}") }
                 }
+            }
+            SfCard {
+                Text("RepRight", style = MaterialTheme.typography.titleMedium)
+                Text("Counts a physio or yoga repetition only when the configured angle, hold and tempo are met.", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+                StatusChip("Verify · camera (pose)", SfTheme.colors.info, "◉")
+                PrimaryButton("Open RepRight") { go("repright") }
             }
             PrimaryButton("Forge new verifier") { showNew = true }
             SecondaryButton("Backend log") { go("backend") }
