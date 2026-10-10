@@ -3,8 +3,8 @@
 Phases 0–3 followed tech spec §30. From Phase 4 the plan is **build-first** (user decision, see "Build-first plan"): build every feature and model slot (4–9), then data, training and acceptance (10), then rehearsal (11).
 If time runs out, the spec's cut order still applies: Laya → RelateAnything → local LLM → HandoverProof → RepRight.
 
-**Current stage:** Stage A (build), A1–A6 done; **next A7** (SealSafe complete). Runbook: `docs/WORKFLOW.md`, trigger `build all`.
-**Last updated:** 2026-10-10 (A6 done; resume with `continue build` at A7)
+**Current stage:** Stage A (build), A1–A7 done; **next A8** (HelloForge). Runbook: `docs/WORKFLOW.md`, trigger `build all`.
+**Last updated:** 2026-10-10 (A7 done; resume with `continue build` at A8)
 
 ## Session handoff (read this first in a new session)
 - **Last session:** A3 done 2026-10-10 (guided Forge flow, see A3 log). Next: A5 PackCheck complete (M1 detector chain, M2 embedder + H1, coaching, moved into the guided flow).
@@ -222,3 +222,8 @@ _Filled during the run._
 ## A6 log
 - CrashGuard was already in the guided flow (A3) with H3, lifecycle, mock transport and replays (Phase 2 + `IncidentControllerTest`). Re-checked on the iQOO 2026-10-10: home tile → use-case page (Set up / Run) → Run screen shows live accel/gyro/rotation at 100 Hz, detection card (H3 v1 / threshold 15 g), replay button; no crash.
 - **Not re-verified this session:** replay → countdown → SIMULATED SOS (my tap on the replay button while DISARMED did not start it; likely needs Arm first). Stage B repeats this with a proper arm step.
+
+## A7 log
+- SealSafe pieces already existed: spec + `AFTER_PARAM` (A1), M2 encoder + H2 intact/broken capture/train/approve in the guided flow (A3/A5), pack export/import.
+- S13: Run screen shows a start/now clock bar with "Opening allowed" / "Before start" chip when `start_time` is set, and per-box labels (class, confidence, "detector" for learned boxes). Builds, tests pass, installs.
+- **Not verified live:** the start-time bar and labels with a real SealSafe run (needs the camera and tags); Stage B covers it with the simulated flow.

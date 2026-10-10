@@ -65,6 +65,8 @@ class PackCheckViewModel(app: Application) : AndroidViewModel(app) {
     var title by androidx.compose.runtime.mutableStateOf("PackCheck")
         private set
     private var params: Map<String, Any> = emptyMap()
+    /** Host-supplied start time (UTC epoch ms) shown in the top bar of SealSafe-style procedures (S13). */
+    val startTimeMs: Long? get() = (params["start_time"] as? Number)?.toLong() ?: (params["start_time"] as? String)?.let { it.toLongOrNull() ?: runCatching { java.time.Instant.parse(it).toEpochMilli() }.getOrNull() }
 
     fun configure(path: String, title: String, params: Map<String, Any>) {
         if (verifier != null) return

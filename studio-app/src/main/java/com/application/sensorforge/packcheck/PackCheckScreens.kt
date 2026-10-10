@@ -87,11 +87,30 @@ private fun LiveScreen(vm: PackCheckViewModel, ui: PackCheckViewModel.Ui) {
             StatusChip("Controlled props (QR tags)", SfTheme.colors.pending, "▣")
         }
         ui.error?.let { Text(it, color = SfTheme.colors.failSolid) }
+        vm.startTimeMs?.let { st ->
+            var now by remember { mutableStateOf(System.currentTimeMillis()) }
+            androidx.compose.runtime.LaunchedEffect(Unit) { while (true) { now = System.currentTimeMillis(); kotlinx.coroutines.delay(1000) } }
+            val fmt = remember { java.text.SimpleDateFormat("HH:mm:ss 'UTC'", java.util.Locale.US).apply { timeZone = java.util.TimeZone.getTimeZone("UTC") } }
+            SfCard {
+                Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                    Text("Start ${fmt.format(java.util.Date(st))}", style = MonoStyle)
+                    Text("Now ${fmt.format(java.util.Date(now))}", style = MonoStyle)
+                }
+                StatusChip(if (now >= st) "Opening allowed" else "Before start: opening is a violation", if (now >= st) SfTheme.colors.pass else SfTheme.colors.unverified, if (now >= st) "✓" else "!")
+            }
+        }
 
         // Preview + overlay; the preview stays composed so start() can bind to it.
         Box(Modifier.fillMaxWidth().aspectRatio(9f / 16f).background(Color.Black, RoundedCornerShape(12.dp))) {
             AndroidView({ previewView }, Modifier.fillMaxSize())
             ui.frame?.takeIf { live }?.let { f -> Overlay(f) }
+            ui.frame?.takeIf { live }?.let { f ->
+                Column(Modifier.align(Alignment.TopStart).padding(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    f.boxes.take(4).forEach { b ->
+                        Text("${b.cls} %.0f%%${if (b.source == "learned") " · detector" else ""}".format(b.confidence * 100), color = Color.White, style = MonoStyle, modifier = Modifier.background(Color(0xCC1C2430), RoundedCornerShape(6.dp)).padding(horizontal = 6.dp, vertical = 2.dp))
+                    }
+                }
+            }
             if (live && ui.frame?.usable == false) {
                 StatusChip("Camera unstable: dark or blurred", SfTheme.colors.unverified, "!", Modifier.align(Alignment.TopCenter).padding(8.dp))
             }
