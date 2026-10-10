@@ -155,7 +155,7 @@ private fun DescribePage(vm: ForgeViewModel, ui: ForgeUi) {
     }
     SfCard {
         Text("Describe it in a sentence", style = MaterialTheme.typography.titleMedium)
-        Text("Offline template compiler: show X, open X, remove X from Y, read the X label CODE, at most one X, never show X, only after start.", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+        Text("The draft below updates as you type (offline template compiler). Compile sentence also tries the local model. Patterns: show X, open X, remove X from Y, read the X label CODE, at most one X, never show X, only after start.", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
         OutlinedTextField(ui.sentence, vm::setSentence, Modifier.fillMaxWidth(), label = { Text("Procedure sentence") }, minLines = 2)
         val ctx = LocalContext.current
         val llmReady = remember { com.application.sensorforge.sdk.runtime.ModelRegistry.get(ctx).state("m6_smollm2").usable }

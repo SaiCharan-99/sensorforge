@@ -129,7 +129,28 @@ class ForgeViewModel(app: Application) : AndroidViewModel(app) {
     private fun err(m: String) = _ui.update { it.copy(error = m, message = null) }
 
     // ---- Describe ----
-    fun setSentence(t: String) = _ui.update { it.copy(sentence = t) }
+    private var autoDraft: kotlinx.coroutines.Job? = null
+
+    /** Typing a description builds the draft automatically (offline template compiler, ~instant) once you pause. */
+    fun setSentence(t: String) {
+        _ui.update { it.copy(sentence = t) }
+        autoDraft?.cancel()
+        if (t.isBlank() || session == null) return
+        autoDraft = viewModelScope.launch {
+            kotlinx.coroutines.delay(600)
+            val s = session ?: return@launch
+            val cur = s.project.procedure()
+            val d = TemplateCompiler.compile(cur.procedureId, t, cur.version + 1)
+            if (d.spec.steps.isEmpty()) {
+                _ui.update { it.copy(draftNotes = d.warnings) }
+                return@launch
+            }
+            val text = Contracts.json.encodeToString(ProcedureSpec.serializer(), d.spec)
+            val notes = d.warnings + d.clauses.map { c -> "'${c.text}' → ${c.stepIds.joinToString().ifEmpty { "nothing" }}" + (c.note?.let { n -> " ($n)" } ?: "") }
+            _ui.update { it.copy(draftText = text, draftNotes = notes, draftErrors = s.project.check(text), deltas = null) }
+            checkDraft()
+        }
+    }
     fun setDraft(t: String) = _ui.update { it.copy(draftText = t, draftErrors = emptyList(), deltas = null) }
     fun toggleJson() = _ui.update { it.copy(showJson = !it.showJson) }
 
