@@ -49,7 +49,7 @@ class ClipImporter(
             val usableHead = head?.takeIf { it.inputDim == embedder.dim }
             val chain = DetectorChain.open(context)
             val specClasses = (spec.entities.map { it.cls } + spec.prohibited.filterIsInstance<com.application.sensorforge.sdk.contracts.ForbiddenClass>().map { it.cls }).toSet()
-            val b = TimelineBuilder("clip-import-${System.currentTimeMillis()}", Tags.STACK, targetsOf = { cls -> spec.entities.filter { it.cls == cls }.map { it.id }.ifEmpty { listOf(cls) } })
+            val b = TimelineBuilder("clip-import-${System.currentTimeMillis()}", Tags.STACK, targetsOf = { cls -> spec.entities.filter { it.cls == cls }.map { it.id }.ifEmpty { listOf(cls) } }, detectorZones = spec.steps.mapNotNull { it.zone }.filter { it.endsWith("_interior") }.toSet())
             val total = (durMs / 1000.0 * fps).toInt().coerceAtLeast(1)
             var usable = 0
             val quality = TagFrameReader()

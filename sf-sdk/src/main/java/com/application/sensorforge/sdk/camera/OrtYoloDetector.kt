@@ -17,16 +17,18 @@ import java.io.File
 import java.nio.FloatBuffer
 
 /** M1 primary: YOLOE-11S (fixed vocabulary, ONNX export) on ONNX Runtime. NNAPI first, then CPU; the one used is logged. */
-class OrtYoloDetector(context: Context, model: File, private val classes: List<String> = CLASSES, private val scoreThreshold: Float = 0.35f) : Detector {
+class OrtYoloDetector(context: Context, model: File, private val classes: List<String> = CLASSES, private val scoreThreshold: Float = 0.25f) : Detector {
     private val env = OrtEnvironment.getEnvironment()
     private lateinit var session: OrtSession
     override var backend: String = "none"; private set
     override var lastMs = 0.0; private set
     private var meter: LatencyMeter? = null
-    private val size = 320
+    private val size = 416
     private val letter = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
     private val px = IntArray(size * size)
     private val buf = FloatArray(3 * size * size)
+    /** Raw detections of the last run (any class, above the detector threshold) for the debug line. */
+    var lastSeen: List<Detection> = emptyList(); private set
 
     private fun open(model: File, ep: String): OrtSession {
         val o = OrtSession.SessionOptions()
@@ -88,6 +90,7 @@ class OrtYoloDetector(context: Context, model: File, private val classes: List<S
         }
         lastMs = (SystemClock.elapsedRealtimeNanos() - t0) / 1e6
         meter?.add(lastMs)
+        lastSeen = dets
         return dets
     }
 
@@ -96,7 +99,7 @@ class OrtYoloDetector(context: Context, model: File, private val classes: List<S
     companion object {
         const val TAG = "SF.M1"
         const val RUNTIME = "ONNX Runtime Android 1.22.0"
-        /** Vocabulary fixed at export time (tools/yoloe/export.py), same order as the model's class channels. */
-        val CLASSES = listOf("adapter", "box", "cable", "charger", "envelope", "impostor_cable", "papers", "phone", "seal")
+        /** Vocabulary fixed at export time (tools/yoloe/export.py: class id -> text prompt), same order as the model's class channels. */
+        val CLASSES = listOf("adapter", "box", "cable", "charger", "envelope", "papers", "phone", "seal")
     }
 }

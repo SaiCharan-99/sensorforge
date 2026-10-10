@@ -53,7 +53,7 @@ data class Quad(val pts: List<Pt>) {
 }
 
 /** One object detection. `code` is an instance code when the detector can read one (tagged props). */
-data class Detection(val cls: String, val box: BBox, val confidence: Double, val code: String? = null)
+data class Detection(val cls: String, val box: BBox, val confidence: Double, val code: String? = null, val learned: Boolean = false)
 
 /** Frame quality: mean luma (0–255) and Laplacian variance (sharpness). */
 data class FrameQuality(val brightness: Double, val sharpness: Double) {

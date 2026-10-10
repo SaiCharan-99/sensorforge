@@ -30,7 +30,12 @@ class TimelineBuilder(
     /** Seconds the interior must stay visible and empty for `region_empty`. */
     private val emptyHoldS: Double = 1.0,
     private val closedStates: Set<String> = setOf("closed", "sealed"),
+    /** Zone names (`box_interior`) that may be taken from a detected container box when no QR corner tags are visible. */
+    private val detectorZones: Set<String> = emptySet(),
 ) {
+    private val detZoneSeen = mutableMapOf<String, Pair<Quad, Double>>()
+    /** Zones in use this frame that come from the detector, not from printed corner tags (less strict; shown in the UI). */
+    var detectorBased: Set<String> = emptySet(); private set
     private val tracker = Tracker()
     private val primitives = mutableListOf<Primitive>()
     private val windows = mutableMapOf<String, MutableList<DoubleArray>>()
@@ -80,7 +85,7 @@ class TimelineBuilder(
 
         val validZones = updateZones(obs, t)
         zones = validZones
-        val dets = obs.detections + validZones.map { (z, q) -> Detection(containerOf(z) ?: z, q.bounds(), Tags.DECODE_CONFIDENCE) }
+        val dets = obs.detections + validZones.filterKeys { it !in detectorBased }.map { (z, q) -> Detection(containerOf(z) ?: z, q.bounds(), Tags.DECODE_CONFIDENCE) }
         val up = tracker.update(t, dets)
         up.started.forEach { tr ->
             emit(t, "appears", tr, frames = listOf(obs.index))
@@ -95,7 +100,7 @@ class TimelineBuilder(
             val occupants = up.seen.filter { it.cls != container && quad.contains(it.box.center) }
             for (tr in up.seen) if (tr.cls != container) updateContainment(tr, zone, container, quad, t, obs.index)
 
-            val interiorVisible = zone in obs.floors || occupants.isNotEmpty()
+            val interiorVisible = zone in obs.floors || zone in detectorBased || occupants.isNotEmpty()
             if (interiorVisible) observable += "zone:$zone"
             // The container is observed while its interior is visible, or while it is visibly
             // closed (nothing can leave a closed box unseen). An open lid alone proves nothing.
@@ -103,7 +108,7 @@ class TimelineBuilder(
             if (container != null && (interiorVisible || closed)) observable += targetsOf(container)
             // region_empty: interior visible through its floor marker and nothing inside for emptyHoldS.
             val anyInside = tracker.active.any { it.cls != container && quad.contains(it.box.center) && t - it.tLast <= 0.5 }
-            if (zone in obs.floors && !anyInside) {
+            if ((zone in obs.floors || zone in detectorBased) && !anyInside) {
                 val since = emptySince.getOrPut(zone) { t }
                 if (t - since >= emptyHoldS && zone !in emptyEmitted) {
                     emptyEmitted += zone
@@ -139,10 +144,22 @@ class TimelineBuilder(
 
     private fun updateZones(obs: FrameObservation, t: Double): Map<String, Quad> {
         for ((zone, cs) in obs.zoneCorners) for ((i, p) in cs) cornerSeen.getOrPut(zone) { mutableMapOf() }[i] = p to t
-        return cornerSeen.mapNotNull { (zone, cs) ->
+        val byTags = cornerSeen.mapNotNull { (zone, cs) ->
             val fresh = (0..3).map { i -> cs[i]?.takeIf { t - it.second <= cornerTtlS }?.first }
             if (fresh.any { it == null }) null else zone to Quad(fresh.filterNotNull())
         }.toMap()
+        val byDet = mutableMapOf<String, Quad>()
+        for (zone in detectorZones) {
+            if (zone in byTags) continue
+            val cls = containerOf(zone) ?: continue
+            obs.detections.filter { it.learned && it.cls == cls }.maxByOrNull { it.confidence }?.let { d ->
+                val b = d.box
+                detZoneSeen[zone] = Quad(listOf(Pt(b.l, b.t), Pt(b.r, b.t), Pt(b.r, b.b), Pt(b.l, b.b))) to t
+            }
+            detZoneSeen[zone]?.takeIf { t - it.second <= cornerTtlS }?.let { byDet[zone] = it.first }
+        }
+        detectorBased = byDet.keys
+        return byTags + byDet
     }
 
     private fun updateContainment(tr: Tracker.TrackState, zone: String, container: String?, quad: Quad, t: Double, frame: Long) {

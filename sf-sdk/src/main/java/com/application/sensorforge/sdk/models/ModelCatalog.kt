@@ -81,7 +81,7 @@ object ModelCatalog {
         ModelEntry(
             "m1_yoloe_11s", "M1", "YOLOE-11S open-vocab detector (ONNX export, fixed vocabulary)", ModelLocation.DEVICE, "yoloe-11s-seg.onnx",
             licence = "AGPL-3.0 (Ultralytics), hackathon only", source = "Ultralytics weights, exported on the laptop (tools/yoloe)",
-            expectedSha256 = "9d911320c779e0c9bc373769c9a383b1f7efb0b070f66c42ff6665608013fa45",
+            expectedSha256 = "188c88c52a69c62197e841fd1f709a5725b02676e9115cb73001411be6f850ce",
             runtime = "ONNX Runtime Android 1.22.0", expectedBackend = "NNAPI → CPU", apps = CAMERA_APPS,
             profiles = listOf("objects"), tier = "T1", fallback = "m1_effdet_lite2", fallbackClaim = "EfficientDet-Lite2 (COCO)", priority = 30,
         ),

@@ -80,7 +80,7 @@ internal class CameraVerifier(
         this.onResult = onResult
         val clip = "clip-${System.currentTimeMillis()}"
         val clipDir = File(outDir, clip).apply { mkdirs() }
-        val b = TimelineBuilder(clip, Tags.STACK, targetsOf = { cls -> spec.entities.filter { it.cls == cls }.map { it.id }.ifEmpty { listOf(cls) } })
+        val b = TimelineBuilder(clip, Tags.STACK, targetsOf = { cls -> spec.entities.filter { it.cls == cls }.map { it.id }.ifEmpty { listOf(cls) } }, detectorZones = spec.steps.mapNotNull { it.zone }.filter { it.endsWith("_interior") }.toSet())
         builder = b
         evidence.clear()
         val coach = Coach(spec)
@@ -145,7 +145,7 @@ internal class CameraVerifier(
                             sorted[sorted.size / 2], sorted[(sorted.size * 95 / 100).coerceAtMost(sorted.size - 1)], stamps.size,
                             f.quality.brightness, f.quality.sharpness,
                         ) + (head?.let { ", identity head v${it.version} (CPU, ${it.classes}) on ${embedder.modelId}" } ?: "") +
-                        (chain?.let { ", detector ${it.modelId} ${it.detector.backend} %.0f ms".format(it.detector.lastMs) } ?: ", detector: none (tags only)")
+                        (chain?.let { ", detector ${it.modelId} ${it.detector.backend} %.0f ms, sees [${(it.detector as? OrtYoloDetector)?.lastSeen.orEmpty().joinToString { d -> "${d.cls} %.2f".format(d.confidence) }}], tracks ${b.activeTracks.size}".format(it.detector.lastMs) } ?: ", detector: none (tags only)")
                     Log.i(TAG, line)
                     events.tryEmit(VerifierEvent.Backend(line))
                 }

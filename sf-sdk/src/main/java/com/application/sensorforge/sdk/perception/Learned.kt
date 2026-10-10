@@ -8,8 +8,8 @@ object Learned {
     /** Detector class names → spec class ids (`cell phone` → `cell_phone`). */
     fun normalise(name: String) = name.trim().lowercase().replace(Regex("[^a-z0-9]+"), "_").trim('_')
 
-    fun merge(tags: List<Detection>, learned: List<Detection>, specClasses: Set<String>, minScore: Double = 0.4, overlap: Float = 0.2f): List<Detection> {
-        val kept = learned.map { it.copy(cls = normalise(it.cls)) }
+    fun merge(tags: List<Detection>, learned: List<Detection>, specClasses: Set<String>, minScore: Double = 0.3, overlap: Float = 0.2f): List<Detection> {
+        val kept = learned.map { it.copy(cls = normalise(it.cls), learned = true) }
             .filter { it.cls in specClasses && it.confidence >= minScore }
             .filter { l -> tags.none { t -> t.cls == l.cls && t.box.iou(l.box) > overlap } }
         // Non-maximum suppression among learned boxes of the same class.
