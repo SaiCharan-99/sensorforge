@@ -238,7 +238,7 @@ fun ForgeStepper(steps: List<String>, current: Int, done: Set<Int>, onSelect: (I
                     .clickable { onSelect(i) }.padding(horizontal = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text((if (isDone && !isCur) "✓ " else "${i + 1} ") + name, color = fg, style = MaterialTheme.typography.labelMedium)
+                Text((if (isDone) "✓ " else "${i + 1} ") + name, color = fg, style = MaterialTheme.typography.labelMedium)
             }
         }
     }

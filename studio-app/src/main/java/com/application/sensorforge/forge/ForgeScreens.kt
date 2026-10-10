@@ -85,7 +85,7 @@ fun ForgeFlow(
     androidx.compose.runtime.LaunchedEffect(imu) { vm.setImuCounts(imu) }
 
     val done = buildSet {
-        if (ui.specVersion > 0 || ui.isDetect) add(0)
+        if (ui.specVersion > 0 || ui.isDetect || ui.specText.isNotBlank()) add(0)
         if (ui.plan?.accepted == true) add(1)
         if (ui.plan?.accepted == true && ui.missing.isEmpty() && ui.progress.isNotEmpty()) add(2)
         if (ui.activeHeads.values.all { it != null } && ui.activeHeads.isNotEmpty()) add(3)
@@ -131,9 +131,12 @@ private fun DescribePage(vm: ForgeViewModel, ui: ForgeUi) {
         return
     }
     val spec = remember(ui.specText) { runCatching { Contracts.parseProcedure(ui.specText) }.getOrNull() }
+    val draftSpec = remember(ui.draftText) { runCatching { Contracts.parseProcedure(ui.draftText) }.getOrNull() }
+    val showingDraft = ui.draftText != ui.specText && draftSpec != null
+    val shown = if (showingDraft) draftSpec else spec
     SfCard {
-        Text("Active spec · v${maxOf(ui.specVersion, 1)}${if (ui.specVersion == 0) " (shipped)" else ""}", style = MaterialTheme.typography.titleMedium)
-        spec?.steps?.forEachIndexed { i, s ->
+        Text(if (showingDraft) "DRAFT, not approved yet (v${ui.specVersion + 1})" else "Active spec · v${maxOf(ui.specVersion, 1)}${if (ui.specVersion == 0) " (shipped)" else ""}", style = MaterialTheme.typography.titleMedium)
+        shown?.steps?.forEachIndexed { i, s ->
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 StatusChip(if (s.required) "required" else "optional", if (s.required) SfTheme.colors.info else SfTheme.colors.pending, "${i + 1}")
                 Column {
@@ -142,7 +145,7 @@ private fun DescribePage(vm: ForgeViewModel, ui: ForgeUi) {
                 }
             }
         }
-        spec?.let { sp ->
+        shown?.let { sp ->
             if (sp.constraints.isNotEmpty() || sp.prohibited.isNotEmpty()) {
                 Text("Rules", style = MaterialTheme.typography.titleMedium)
                 sp.constraints.forEach { Mono(it.toString().take(110)) }

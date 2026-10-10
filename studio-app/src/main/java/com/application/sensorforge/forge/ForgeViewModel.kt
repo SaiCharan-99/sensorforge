@@ -151,7 +151,9 @@ class ForgeViewModel(app: Application) : AndroidViewModel(app) {
             val notes = r.notes + if (r.source == com.application.sensorforge.sdk.forge.Authoring.Source.TEMPLATE) d.clauses.map { c -> "'${c.text}' → ${c.stepIds.joinToString().ifEmpty { "nothing" }}" + (c.note?.let { n -> " ($n)" } ?: "") } else emptyList()
             _ui.update { it.copy(busy = false, draftText = text, draftNotes = notes, draftErrors = s.project.check(text), deltas = null) }
             log("forge.compile", "use_case" to s.def.id, "source" to r.source.name)
-            msg(if (r.source == com.application.sensorforge.sdk.forge.Authoring.Source.LLM) "Drafted by the local model (SmolLM2, on device) and schema-checked. Review the cards, then check and approve." else "Compiled with the offline template compiler (guided authoring). Review the cards, then check and approve.")
+            checkDraft()
+            val checkedMsg = _ui.value.message
+            msg(if (r.source == com.application.sensorforge.sdk.forge.Authoring.Source.LLM) "Drafted by the local model (SmolLM2, on device) and schema-checked. Review the draft below, then approve it." else "Compiled with the offline template compiler (guided authoring). Review the draft below, then approve it.") ; if (checkedMsg != null && _ui.value.draftErrors.isEmpty()) msg(_ui.value.message + " " + checkedMsg)
         }
     }
 
