@@ -3,8 +3,8 @@
 Phases 0–3 followed tech spec §30. From Phase 4 the plan is **build-first** (user decision, see "Build-first plan"): build every feature and model slot (4–9), then data, training and acceptance (10), then rehearsal (11).
 If time runs out, the spec's cut order still applies: Laya → RelateAnything → local LLM → HandoverProof → RepRight.
 
-**Current stage:** Stage A (build), A1–A5 done; **next A6** (CrashGuard complete). Runbook: `docs/WORKFLOW.md`, trigger `build all`.
-**Last updated:** 2026-10-10 (A5 done; resume with `continue build` at A6)
+**Current stage:** Stage A (build), A1–A6 done; **next A7** (SealSafe complete). Runbook: `docs/WORKFLOW.md`, trigger `build all`.
+**Last updated:** 2026-10-10 (A6 done; resume with `continue build` at A7)
 
 ## Session handoff (read this first in a new session)
 - **Last session:** A3 done 2026-10-10 (guided Forge flow, see A3 log). Next: A5 PackCheck complete (M1 detector chain, M2 embedder + H1, coaching, moved into the guided flow).
@@ -218,3 +218,7 @@ _Filled during the run._
 - `camera/DetectorChain` (M1: EfficientDet-Lite2 → Lite0 → tagged props, via registry/BackendLog), `perception/Learned.merge` (learned boxes merged with tag detections; `LearnedTest`), `camera/Embedders` (M2 MobileNet-V3 embedder if installed, else YUV histogram; examples tied to the encoder; head dim mismatch → head ignored, tags decide), `CameraVerifier` runs M1 at ~5 Hz and draws learned boxes (`OverlayBox.source`).
 - `camera/ClipImporter`: video on the phone → timeline through the same perception path (REAL example, not simulation); Forge Capture has **Import video** per run item (`ForgeViewModel.importClip`, session log `forge.import_clip`).
 - Verified: build, `:sf-sdk:test` pass, installs and launches on the iQOO with no crash. **Not yet verified:** an import of a real clip (needs a video on the phone) and detector latency numbers; both go to Stage B/D.
+
+## A6 log
+- CrashGuard was already in the guided flow (A3) with H3, lifecycle, mock transport and replays (Phase 2 + `IncidentControllerTest`). Re-checked on the iQOO 2026-10-10: home tile → use-case page (Set up / Run) → Run screen shows live accel/gyro/rotation at 100 Hz, detection card (H3 v1 / threshold 15 g), replay button; no crash.
+- **Not re-verified this session:** replay → countdown → SIMULATED SOS (my tap on the replay button while DISARMED did not start it; likely needs Arm first). Stage B repeats this with a proper arm step.
