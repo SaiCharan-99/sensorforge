@@ -45,7 +45,11 @@ import java.util.concurrent.Executors
 class SceneFrame(val bitmap: Bitmap, val proposals: List<Detection>, val objects: List<SceneObject>, val ms: Double)
 
 @Serializable
-data class SceneExample(val id: String, val label: String, val session: String, val heldOut: Boolean, val embedder: String, val x: List<Float>)
+data class SceneExample(
+    val id: String, val label: String, val session: String, val heldOut: Boolean, val embedder: String, val x: List<Float>,
+    /** The tapped box this vector came from: one box makes several jittered variants, which count as one example. */
+    val group: String = "",
+) { val key get() = group.ifEmpty { id } }
 
 /**
  * "Box everything, name it, train it, judge it" (SceneCheck).
@@ -69,6 +73,8 @@ class SceneLab(private val context: Context) {
     private var provider: ProcessCameraProvider? = null
     @Volatile private var running = false
     @Volatile private var activeHead: Head? = null
+    /** True when the last training reserved held-out sessions automatically (none were marked by hand). */
+    @Volatile var autoHeldOut = false; private set
 
     val embedder: CropEmbedder get() = Embedders.best(app)
 
@@ -106,7 +112,7 @@ class SceneLab(private val context: Context) {
 
     /** label → (dev count, held-out count) for the current encoder. */
     fun counts(): Map<String, Pair<Int, Int>> = examples().filter { it.embedder == embedder.name }.groupBy { it.label }
-        .mapValues { (_, v) -> v.count { !it.heldOut } to v.count { it.heldOut } }.toSortedMap()
+        .mapValues { (_, v) -> v.filter { !it.heldOut }.map { it.key }.toSet().size to v.filter { it.heldOut }.map { it.key }.toSet().size }.toSortedMap()
 
     /** Saves [box] of [frame] as an example of [label]. Returns false when the crop is too small to embed. */
     @Synchronized fun addExample(frame: Bitmap, box: BBox, label: String, session: String, heldOut: Boolean): Boolean {
@@ -115,17 +121,26 @@ class SceneLab(private val context: Context) {
         val enc = embedder
         val x = enc.embed(frame, box) ?: return false
         val id = "ex_${System.currentTimeMillis()}_${(Math.random() * 1000).toInt()}"
+        // Jittered variants (box scale and shift) so the head tolerates the detector's different box tightness at run time.
+        val rnd = java.util.Random(id.hashCode().toLong())
+        val variants = (0 until JITTER).mapNotNull {
+            val s = 0.88f + rnd.nextFloat() * 0.24f
+            val w0 = (box.r - box.l) * s; val h0 = (box.b - box.t) * s
+            val cx = (box.l + box.r) / 2 + (rnd.nextFloat() - 0.5f) * 0.16f * (box.r - box.l)
+            val cy = (box.t + box.b) / 2 + (rnd.nextFloat() - 0.5f) * 0.16f * (box.b - box.t)
+            enc.embed(frame, BBox((cx - w0 / 2).coerceIn(0f, 1f), (cy - h0 / 2).coerceIn(0f, 1f), (cx + w0 / 2).coerceIn(0f, 1f), (cy + h0 / 2).coerceIn(0f, 1f)))
+        }
         val w = frame.width; val h = frame.height
         val x0 = (box.l * w).toInt().coerceIn(0, w - 1); val y0 = (box.t * h).toInt().coerceIn(0, h - 1)
         val x1 = (box.r * w).toInt().coerceIn(x0 + 1, w); val y1 = (box.b * h).toInt().coerceIn(y0 + 1, h)
         File(cropsDir, "$id.jpg").outputStream().use { Bitmap.createBitmap(frame, x0, y0, x1 - x0, y1 - y0).compress(Bitmap.CompressFormat.JPEG, 85, it) }
-        saveExamples(examples() + SceneExample(id, clean, session, heldOut, enc.name, x.toList()))
+        saveExamples(examples() + SceneExample(id, clean, session, heldOut, enc.name, x.toList(), id) + variants.mapIndexed { i, v -> SceneExample("${id}_j$i", clean, session, heldOut, enc.name, v.toList(), id) })
         return true
     }
 
     @Synchronized fun deleteLabel(label: String) {
         val all = examples()
-        all.filter { it.label == label }.forEach { File(cropsDir, "${it.id}.jpg").delete() }
+        all.filter { it.label == label }.forEach { File(cropsDir, "${it.key}.jpg").delete() }
         saveExamples(all.filter { it.label != label })
     }
 
@@ -146,7 +161,19 @@ class SceneLab(private val context: Context) {
         val enc = embedder
         val use = trainable()
         require(use.size >= 2) { "Need at least 2 labels with ≥ $MIN_PER_CLASS examples each (have ${use.size})." }
-        val data = examples().filter { it.embedder == enc.name && it.label in use }.map { Example(it.x.toFloatArray(), it.label, it.session, it.heldOut) }
+        val pool = examples().filter { it.embedder == enc.name && it.label in use }
+        // No explicit held-out? Reserve each label's newest session (only when the label has other sessions with enough examples left).
+        val auto = mutableSetOf<String>()
+        if (pool.none { it.heldOut }) for (l in use) {
+            val mine = pool.filter { it.label == l }
+            val sessions = mine.map { it.session }.distinct()
+            if (sessions.size >= 2) {
+                val newest = mine.filter { it.session == sessions.last() }
+                if (mine.filter { it.session != sessions.last() }.map { it.key }.toSet().size >= MIN_PER_CLASS) auto += newest.map { it.id }
+            }
+        }
+        autoHeldOut = auto.isNotEmpty()
+        val data = pool.map { Example(it.x.toFloatArray(), it.label, it.session, it.heldOut || it.id in auto) }
         val parent = store.active()?.let { store.load(it) }?.takeIf { it.classes == use.sorted() && it.inputDim == enc.dim }
         val (head, report) = HeadTrainer.train(
             headId = HEAD_ID, classes = use.sorted(), data = data, config = TrainConfig(hidden = 16, epochs = 200, minPerClass = MIN_PER_CLASS),
@@ -230,5 +257,6 @@ class SceneLab(private val context: Context) {
         const val HEAD_ID = "scene_objects"
         const val MIN_PER_CLASS = 4
         const val MIN_PROB = 0.6f
+        const val JITTER = 5
     }
 }

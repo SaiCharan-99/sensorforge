@@ -102,6 +102,8 @@ class SceneViewModel(app: Application) : AndroidViewModel(app) {
         val message: String? = null,
         val error: String? = null,
         val busy: Boolean = false,
+        val autoOther: Boolean = true,
+        val autoHeld: Boolean = false,
         val report: TrainingReport? = null,
         val activeVersion: Int? = null,
         val rules: SceneRules = SceneRules(),
@@ -125,7 +127,7 @@ class SceneViewModel(app: Application) : AndroidViewModel(app) {
 
     fun refresh() = _ui.update {
         it.copy(counts = lab.counts(), activeVersion = lab.store.active(), rules = lab.rules(), proposer = lab.proposerName(),
-            report = it.report ?: lab.store.active()?.let { v -> runCatching { lab.store.report(v) }.getOrNull() })
+            autoHeld = lab.autoHeldOut, report = it.report ?: lab.store.active()?.let { v -> runCatching { lab.store.report(v) }.getOrNull() })
     }
 
     fun setTab(t: Int) { stopCamera(); _ui.update { it.copy(tab = t, message = null, error = null, frame = null, selected = null) } }
@@ -140,7 +142,7 @@ class SceneViewModel(app: Application) : AndroidViewModel(app) {
                 latest = f
                 val judged = if (classify) SceneJudge.judge(f.objects, _ui.value.rules) else null
                 val v = judged?.let { smoother.add(it.verdict) } ?: Verdict.UNVERIFIED
-                _ui.update { it.copy(liveObjects = f.objects, liveProps = f.proposals, frameMs = f.ms, judged = judged, verdict = v) }
+                _ui.update { it.copy(liveObjects = f.objects.filter { o -> o.label != "other" }, liveProps = f.proposals, frameMs = f.ms, judged = judged, verdict = v) }
             }
             _ui.update { it.copy(live = true, error = null) }
         } catch (e: Exception) { _ui.update { it.copy(error = "Cannot start the camera: ${e.message}") } }
@@ -164,7 +166,19 @@ class SceneViewModel(app: Application) : AndroidViewModel(app) {
 
     fun newSession() = _ui.update { it.copy(session = "s${System.currentTimeMillis()}") }
     fun select(i: Int?) = _ui.update { it.copy(selected = i) }
-    fun resume() = _ui.update { it.copy(frame = null, selected = null) }
+    fun setAutoOther(v: Boolean) = _ui.update { it.copy(autoOther = v) }
+
+    /** Leaves the frozen frame. Unnamed detector boxes can become 'other' examples so the head learns to reject stray boxes. */
+    fun resume() {
+        val u = _ui.value; val bmp = u.frame
+        if (bmp != null && u.autoOther && u.labelled.isNotEmpty()) {
+            val named = u.labelled.keys.mapNotNull { u.frameProps.getOrNull(it)?.box }
+            val others = u.frameProps.filterIndexed { i, d -> i !in u.labelled && named.none { n -> d.box.iou(n) > 0.3f } }.take(6)
+            val session = u.session.ifEmpty { "s0" }
+            viewModelScope.launch { withContext(Dispatchers.Default) { others.forEach { lab.addExample(bmp, it.box, "other", session, u.heldOut) } }; refresh() }
+        }
+        _ui.update { it.copy(frame = null, selected = null) }
+    }
 
     fun saveLabel(label: String) {
         val u = _ui.value; val i = u.selected ?: return; val bmp = u.frame ?: return
@@ -186,7 +200,7 @@ class SceneViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             try {
                 val (head, report) = withContext(Dispatchers.Default) { lab.train() }
-                _ui.update { it.copy(busy = false, report = report, message = "Trained v${head.version} (${report.trainMillis} ms). Approve it to use it.") }
+                _ui.update { it.copy(busy = false, report = report, autoHeld = lab.autoHeldOut, message = "Trained v${head.version} (${report.trainMillis} ms). Approve it to use it.") }
             } catch (e: Exception) { _ui.update { it.copy(busy = false, error = "Train refused: ${e.message}") } }
             refresh()
         }
@@ -337,6 +351,10 @@ private fun LabelTab(vm: SceneViewModel, ui: SceneViewModel.Ui) {
             Checkbox(ui.heldOut, { vm.setHeldOut(it) })
             Text("Held-out (used only to test, never to train)", style = MaterialTheme.typography.bodyMedium)
         }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Checkbox(ui.autoOther, { vm.setAutoOther(it) })
+            Text("Unnamed boxes in this frame become other (teaches it what to ignore)", style = MaterialTheme.typography.bodyMedium)
+        }
         SecondaryButton("Done with this frame: back to camera") { vm.resume(); vm.newSession() }
     }
     CountsCard(vm, ui)
@@ -370,7 +388,9 @@ private fun TrainTab(vm: SceneViewModel, ui: SceneViewModel.Ui) {
             Text("train ${r.trainSamples} · val ${r.valSamples} · held-out ${r.heldOutSamples} · changed ${r.changedParameterCount}/${r.parameterCount}", style = MaterialTheme.typography.bodyMedium)
             LossCurveChart(r.lossCurve, r.valLossCurve)
             HashCard("Weights sha256 (parent → trained)", r.parentSha256, r.trainedWeightsSha256)
-            Text("Held-out: " + r.heldOutMetrics.entries.joinToString { "${it.key} P %.2f R %.2f (n=%d)".format(it.value.precision, it.value.recall, it.value.support) }.ifEmpty { "none (tick held-out while labelling some frames)" }, style = MaterialTheme.typography.bodyMedium)
+            Text("Validation (sessions the head did not fit): " + r.perClassMetrics.entries.joinToString { "${it.key} P %.2f R %.2f (n=%d)".format(it.value.precision, it.value.recall, it.value.support) }.ifEmpty { "none" }, style = MaterialTheme.typography.bodyMedium)
+            if (ui.autoHeld) Text("No held-out box was ticked, so each label's newest session was held out automatically.", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+            Text("Held-out: " + r.heldOutMetrics.entries.joinToString { "${it.key} P %.2f R %.2f (n=%d)".format(it.value.precision, it.value.recall, it.value.support) }.ifEmpty { "none yet: label more frames (each Done with this frame starts a new session), then train again" }, style = MaterialTheme.typography.bodyMedium)
             if (ui.activeVersion != r.headVersion) PrimaryButton("Approve v${r.headVersion}") { vm.approve(r.headVersion) }
         }
     }
