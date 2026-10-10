@@ -115,7 +115,7 @@ class ModelRegistry private constructor(private val context: Context) {
     }
 
     @Synchronized
-    private fun fileSha(f: File): String = hashCache.getOrPut("${f.absolutePath}@${f.length()}@${f.lastModified()}") { f.inputStream().use { digest(it) } }
+    private fun fileSha(f: File): String = hashCache.getOrPut("${f.absolutePath}@${f.length()}@${f.lastModified()}") { f.inputStream().use { digest(it) }.also { h -> cacheFile.appendText("$apkStamp ${f.absolutePath}@${f.length()}@${f.lastModified()} $h\n") } }
 
     private fun digest(input: InputStream): String {
         val md = MessageDigest.getInstance("SHA-256")

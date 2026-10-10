@@ -155,19 +155,20 @@ private fun DescribePage(vm: ForgeViewModel, ui: ForgeUi) {
         Text("Offline template compiler: show X, open X, remove X from Y, read the X label CODE, at most one X, never show X, only after start.", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
         OutlinedTextField(ui.sentence, vm::setSentence, Modifier.fillMaxWidth(), label = { Text("Procedure sentence") }, minLines = 2)
         val ctx = LocalContext.current
+        val llmReady = remember { com.application.sensorforge.sdk.runtime.ModelRegistry.get(ctx).state("m6_smollm2").usable }
         var voiceState by remember { mutableStateOf<String?>(null) }
         val voice = remember { VoiceInput(ctx, { vm.setSentence(it) }, { voiceState = it }) }
         androidx.compose.runtime.DisposableEffect(Unit) { onDispose { voice.stop() } }
         val micPerm = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { if (it) voice.start() else voiceState = "Microphone permission denied. Type the sentence instead." }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            SecondaryButton("Compile sentence", enabled = ui.sentence.isNotBlank()) { vm.compileSentence() }
+            SecondaryButton("Compile sentence", enabled = ui.sentence.isNotBlank() && !ui.busy) { vm.compileSentence() }
             SecondaryButton("Speak", enabled = voice.available) {
                 if (ContextCompat.checkSelfPermission(ctx, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) voice.start() else micPerm.launch(Manifest.permission.RECORD_AUDIO)
             }
         }
         voiceState?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = TextSecondary) }
         if (!voice.available) Text("Voice input (M7) unavailable: no on-device recognizer on this phone.", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
-        Text("Local LLM (M6): not active, no native runtime bundled. Guided authoring (templates) is used. Laya (O1): omitted.", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+        Text(if (llmReady) "Local model (M6 SmolLM2, llama.cpp CPU): installed. Drafts are schema-checked; invalid output falls back to templates. Laya (O1): omitted." else "Local model (M6): not installed, guided authoring (templates) is used. Laya (O1): omitted.", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
         ui.draftNotes.forEach { Text("• $it", style = MaterialTheme.typography.bodyMedium) }
     }
     SecondaryButton(if (ui.showJson) "Hide JSON" else "Edit JSON") { vm.toggleJson() }

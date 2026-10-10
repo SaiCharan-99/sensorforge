@@ -255,3 +255,9 @@ _Filled during the run._
 - **M6 gap:** no llama.cpp native runtime is bundled and the ~1 GB GGUF is not installed, so the LLM path is never active; Describe says so and uses templates. Gate "8/10 sentences valid offline" is not met (claim stays "guided authoring"). Question for user below.
 - **M7:** `forge/VoiceInput` (on-device `SpeechRecognizer`, API 31+, offline preferred, user taps Speak, RECORD_AUDIO asked on first tap, nothing stored); Settings mic row updated. Not exercised with real speech (needs the offline language pack).
 - **O1 Laya:** omitted, shown as such. Session log `forge.compile` records source.
+
+## A11b log (M6 installed and loaded, 2026-10-10)
+- Downloaded `smollm2-1.7b-instruct-q4_k_m.gguf` from Hugging Face (1,055,609,536 bytes, sha256 `decd2598...30d4f33`, Apache-2.0), pushed to `files/models/` on the iQOO; registry reports INSTALLED with the pinned hash.
+- Runtime: `io.github.ljcamargo:llamacpp-kotlin:0.4.0` (Apache-2.0, prebuilt llama.cpp AAR, 19 MB; arm64 .so), `sdk/runtime/LlamaBackend`. Forge only. Measured on iQOO (SF.BACKEND): load ~1 s, generate 10-11 s per sentence, CPU.
+- Result: the model loads and generates on the phone, but its JSON failed the validator on all 4 live tries (unknown keys, missing version, malformed JSON); each one fell back to the template compiler with the reason shown. **M6 gate (8 of 10 valid) not met; claim stays "guided authoring".** Mitigations added: one-shot example in the prompt, host-owned ids/version, lenient unknown-key drop. A constrained-grammar decode would be the next step.
+- Registry now persists hashes of device model files (1 GB hash is not recomputed each launch).

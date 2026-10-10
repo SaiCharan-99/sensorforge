@@ -133,16 +133,26 @@ class ForgeViewModel(app: Application) : AndroidViewModel(app) {
     fun setDraft(t: String) = _ui.update { it.copy(draftText = t, draftErrors = emptyList(), deltas = null) }
     fun toggleJson() = _ui.update { it.copy(showJson = !it.showJson) }
 
+    private var llm: com.application.sensorforge.sdk.runtime.LlamaBackend? = null
+
+    /** M6 local LLM when installed (Forge only), validated; otherwise the template compiler. Runs off the main thread. */
     fun compileSentence() {
         val s = session ?: return
         val cur = s.project.procedure()
-        // M6 runs only if a native llama.cpp runtime is bundled (none yet): the template compiler is the declared fallback.
-        val r = com.application.sensorforge.sdk.forge.Authoring.author(cur.procedureId, _ui.value.sentence, cur.version + 1, null)
-        val text = Contracts.json.encodeToString(ProcedureSpec.serializer(), r.spec)
-        val d = TemplateCompiler.compile(cur.procedureId, _ui.value.sentence, version = cur.version + 1)
-        _ui.update { it.copy(draftText = text, draftNotes = r.notes + d.clauses.map { c -> "'${c.text}' → ${c.stepIds.joinToString().ifEmpty { "nothing" }}" + (c.note?.let { n -> " ($n)" } ?: "") }, draftErrors = s.project.check(text), deltas = null) }
-        log("forge.compile", "use_case" to s.def.id, "source" to r.source.name)
-        msg("Compiled with the offline template compiler (guided authoring, deterministic). Review the cards, then check and approve.")
+        val sentence = _ui.value.sentence
+        _ui.update { it.copy(busy = true, message = "Drafting with the local model…", error = null) }
+        viewModelScope.launch {
+            val r = withContext(Dispatchers.Default) {
+                val backend = llm ?: com.application.sensorforge.sdk.runtime.LlamaBackend.openIfInstalled(getApplication())?.also { llm = it }
+                com.application.sensorforge.sdk.forge.Authoring.author(cur.procedureId, sentence, cur.version + 1, backend)
+            }
+            val text = Contracts.json.encodeToString(ProcedureSpec.serializer(), r.spec)
+            val d = TemplateCompiler.compile(cur.procedureId, sentence, version = cur.version + 1)
+            val notes = r.notes + if (r.source == com.application.sensorforge.sdk.forge.Authoring.Source.TEMPLATE) d.clauses.map { c -> "'${c.text}' → ${c.stepIds.joinToString().ifEmpty { "nothing" }}" + (c.note?.let { n -> " ($n)" } ?: "") } else emptyList()
+            _ui.update { it.copy(busy = false, draftText = text, draftNotes = notes, draftErrors = s.project.check(text), deltas = null) }
+            log("forge.compile", "use_case" to s.def.id, "source" to r.source.name)
+            msg(if (r.source == com.application.sensorforge.sdk.forge.Authoring.Source.LLM) "Drafted by the local model (SmolLM2, on device) and schema-checked. Review the cards, then check and approve." else "Compiled with the offline template compiler (guided authoring). Review the cards, then check and approve.")
+        }
     }
 
     fun resetDraft() = _ui.update { it.copy(draftText = it.specText, draftErrors = emptyList(), deltas = null, draftNotes = emptyList()) }

@@ -169,7 +169,8 @@ object ModelCatalog {
         ),
         ModelEntry(
             "m6_smollm2", "M6", "SmolLM2-1.7B-Instruct Q4 GGUF (authoring only)", ModelLocation.DEVICE, "smollm2-1.7b-instruct-q4_k_m.gguf",
-            licence = "Apache-2.0", source = "Hugging Face HuggingFaceTB/SmolLM2-1.7B-Instruct-GGUF", runtime = "llama.cpp",
+            licence = "Apache-2.0", source = "Hugging Face HuggingFaceTB/SmolLM2-1.7B-Instruct-GGUF", runtime = "llama.cpp (llamacpp-kotlin 0.4.0, Apache-2.0)",
+            expectedSha256 = "decd2598bc2c8ed08c19adc3c8fdd461ee19ed5708679d1c54ef54a5a30d4f33",
             expectedBackend = "CPU", apps = listOf("Forge"), tier = "P1", fallback = "template compiler", fallbackClaim = "guided authoring",
         ),
         ModelEntry(
