@@ -85,28 +85,47 @@ class SceneLab(private val context: Context) {
     /** Which proposer is in use, and why (shown in the UI). */
     fun proposerName(): String = openProposer()?.second ?: "none: no detector installed (tags only)"
 
+    private val choiceFile = File(root, "proposer.txt")
+
+    /** Detector choices that are installed, in preference order: YOLOE everyday objects, EfficientDet (COCO), YOLOE prompt-free. */
+    fun proposerChoices(): List<String> {
+        val reg = ModelRegistry.get(app)
+        return listOf("m1_yoloe_common", "m1_effdet_lite2", "m1_effdet_lite0", "m1_yoloe_pf").filter { reg.state(it).usable }
+    }
+
+    fun proposerChoice(): String? = choiceFile.takeIf { it.exists() }?.readText()?.trim()?.takeIf { it in proposerChoices() } ?: proposerChoices().firstOrNull()
+
+    /** Switches to the next installed detector. */
+    fun cycleProposer() {
+        val all = proposerChoices(); if (all.size < 2) return
+        choiceFile.writeText(all[(all.indexOf(proposerChoice()) + 1) % all.size])
+        synchronized(proposerLock) { proposerCache = null }
+    }
+
     private fun openProposer(): Pair<Detector, String>? = synchronized(proposerLock) {
         proposerCache?.let { return it }
         val reg = ModelRegistry.get(app)
-        for (id in listOf("m1_effdet_lite2", "m1_effdet_lite0")) {
-            val st = reg.state(id)
-            if (!st.usable) continue
+        val order = listOfNotNull(proposerChoice()) + proposerChoices()
+        for (id in order.distinct()) {
             try {
-                val d = com.application.sensorforge.sdk.camera.MpObjectDetector(app, st.entry.file!!, scoreThreshold = 0.2f, maxResults = 25)
-                return (d to "EfficientDet ${if (id.endsWith("lite2")) "Lite2" else "Lite0"} (MediaPipe, COCO classes), ${d.backend}").also { proposerCache = it }
+                val made: Pair<Detector, String> = when (id) {
+                    "m1_effdet_lite2", "m1_effdet_lite0" -> {
+                        val d = com.application.sensorforge.sdk.camera.MpObjectDetector(app, reg.state(id).entry.file!!, scoreThreshold = 0.2f, maxResults = 25)
+                        d to "EfficientDet ${if (id.endsWith("lite2")) "Lite2" else "Lite0"} (COCO classes), ${d.backend}"
+                    }
+                    else -> {
+                        val file = if (id == "m1_yoloe_common") "yoloe-common.names" else "yoloe-11s-seg-pf.names"
+                        val names = File(reg.modelsDir, file)
+                        if (!names.exists()) continue
+                        val list = names.readLines().filter { it.isNotBlank() }
+                        val d = OrtYoloDetector(app, reg.deviceFile(id), list, 0.2f, agnostic = true, maxResults = 25)
+                        d to "YOLOE-11S ${if (id == "m1_yoloe_common") "everyday objects" else "prompt-free"} (${list.size} names), ${d.backend}"
+                    }
+                }
+                return made.also { proposerCache = it }
             } catch (e: Exception) { Log.w(TAG, "$id proposer failed: ${e.message}") }
         }
-        for ((id, namesFile, what) in listOf(Triple("m1_yoloe_common", "yoloe-common.names", "everyday objects"), Triple("m1_yoloe_pf", "yoloe-11s-seg-pf.names", "prompt-free"))) {
-            if (!reg.state(id).usable) continue
-            val names = File(reg.modelsDir, namesFile)
-            if (!names.exists()) continue
-            try {
-                val list = names.readLines().filter { it.isNotBlank() }
-                val d = OrtYoloDetector(app, reg.deviceFile(id), list, 0.2f, agnostic = true, maxResults = 25)
-                return (d to "YOLOE-11S $what (${list.size} names), ${d.backend}").also { proposerCache = it }
-            } catch (e: Exception) { Log.w(TAG, "$id proposer failed: ${e.message}") }
-        }
-        DetectorChain.open(app)?.let { c -> return (c.detector to "${c.modelId} (fixed vocabulary, install the prompt-free model for 'every object')").also { proposerCache = it } }
+        DetectorChain.open(app)?.let { c -> return (c.detector to "${c.modelId} (fixed vocabulary)").also { proposerCache = it } }
         null
     }
 

@@ -164,6 +164,9 @@ class SceneViewModel(app: Application) : AndroidViewModel(app) {
         _ui.update { it.copy(frameProps = it.frameProps + Detection("object", box, 1.0), selected = it.frameProps.size) }
     }
 
+    fun switchDetector() { stopCamera(); lab.cycleProposer(); refresh(); _ui.update { it.copy(message = "Detector switched. Press Start camera.") } }
+    fun detectorCount() = lab.proposerChoices().size
+
     fun newSession() = _ui.update { it.copy(session = "s${System.currentTimeMillis()}") }
     fun select(i: Int?) = _ui.update { it.copy(selected = i) }
     fun setAutoOther(v: Boolean) = _ui.update { it.copy(autoOther = v) }
@@ -292,6 +295,7 @@ private fun Boxes(items: List<Triple<BBox, String, Color>>, thick: Float = 3f, h
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun LabelTab(vm: SceneViewModel, ui: SceneViewModel.Ui) {
+    if (!ui.live && ui.frame == null && vm.detectorCount() > 1) SecondaryButton("Switch detector") { vm.switchDetector() }
     InfoCard("Detector: ${ui.proposer}. It draws a box around each object it can see; its name is only a guess. Capture a frame, tap a box, give it your name. Repeat across different angles and lighting.")
     val frame = ui.frame
     if (frame == null) {
