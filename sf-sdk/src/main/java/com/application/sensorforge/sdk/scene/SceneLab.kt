@@ -88,6 +88,14 @@ class SceneLab(private val context: Context) {
     private fun openProposer(): Pair<Detector, String>? = synchronized(proposerLock) {
         proposerCache?.let { return it }
         val reg = ModelRegistry.get(app)
+        for (id in listOf("m1_effdet_lite2", "m1_effdet_lite0")) {
+            val st = reg.state(id)
+            if (!st.usable) continue
+            try {
+                val d = com.application.sensorforge.sdk.camera.MpObjectDetector(app, st.entry.file!!, scoreThreshold = 0.2f, maxResults = 25)
+                return (d to "EfficientDet ${if (id.endsWith("lite2")) "Lite2" else "Lite0"} (MediaPipe, COCO classes), ${d.backend}").also { proposerCache = it }
+            } catch (e: Exception) { Log.w(TAG, "$id proposer failed: ${e.message}") }
+        }
         for ((id, namesFile, what) in listOf(Triple("m1_yoloe_common", "yoloe-common.names", "everyday objects"), Triple("m1_yoloe_pf", "yoloe-11s-seg-pf.names", "prompt-free"))) {
             if (!reg.state(id).usable) continue
             val names = File(reg.modelsDir, namesFile)
