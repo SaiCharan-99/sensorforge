@@ -3,8 +3,8 @@
 Phases 0–3 followed tech spec §30. From Phase 4 the plan is **build-first** (user decision, see "Build-first plan"): build every feature and model slot (4–9), then data, training and acceptance (10), then rehearsal (11).
 If time runs out, the spec's cut order still applies: Laya → RelateAnything → local LLM → HandoverProof → RepRight.
 
-**Current stage:** Stage A (build), A1–A7 done; **next A8** (HelloForge). Runbook: `docs/WORKFLOW.md`, trigger `build all`.
-**Last updated:** 2026-10-10 (A7 done; resume with `continue build` at A8)
+**Current stage:** Stage A (build), A1–A8 done; **next A9** (RepRight). Runbook: `docs/WORKFLOW.md`, trigger `build all`.
+**Last updated:** 2026-10-10 (A8 done; resume with `continue build` at A9)
 
 ## Session handoff (read this first in a new session)
 - **Last session:** A3 done 2026-10-10 (guided Forge flow, see A3 log). Next: A5 PackCheck complete (M1 detector chain, M2 embedder + H1, coaching, moved into the guided flow).
@@ -227,3 +227,8 @@ _Filled during the run._
 - SealSafe pieces already existed: spec + `AFTER_PARAM` (A1), M2 encoder + H2 intact/broken capture/train/approve in the guided flow (A3/A5), pack export/import.
 - S13: Run screen shows a start/now clock bar with "Opening allowed" / "Before start" chip when `start_time` is set, and per-box labels (class, confidence, "detector" for learned boxes). Builds, tests pass, installs.
 - **Not verified live:** the start-time bar and labels with a real SealSafe run (needs the camera and tags); Stage B covers it with the simulated flow.
+
+## A8 log
+- `hello-forge` (S19): choose a `.sfpkg` (copied to app files), optional `start_time`, Start/Stop, big verdict text, reasons, error text with the typed exception, footer `pack id vN · sha256 · perception stack`. The core is two SDK calls (`SensorForge.load`, `Verifier.start`); only the public API is used.
+- **Bug found and fixed:** Android's `ZipInputStream` rejected a valid pack ("invalid entry size") that the JVM accepted. `Pack.readZip` now reads through the central directory with `Inflater`, checks CRC32, caps entry size (64 MB) and bounds offsets. `tamperedBytesRejected` now flips every 7th byte: each flip is rejected or leaves the content hash unchanged.
+- Device-verified: SealSafe pack imported into HelloForge shows `pack sealsafe v1 · sha256 55cb2041…`; missing `start_time` shows `ContractException`. **Not verified:** a live camera run in HelloForge (needs camera permission tap + tags).

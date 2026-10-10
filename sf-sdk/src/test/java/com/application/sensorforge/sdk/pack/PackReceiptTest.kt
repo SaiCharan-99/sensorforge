@@ -41,10 +41,15 @@ class PackReceiptTest {
     }
 
     @Test fun tamperedBytesRejected() {
-        val bytes = Pack.build(contents()).first.copyOf()
-        // Flip a byte of the stored (uncompressed-size-sensitive) content; either zip or hash check must reject.
-        bytes[bytes.size / 2] = (bytes[bytes.size / 2].toInt() xor 0x55).toByte()
-        assertThrows(Exception::class.java) { Pack.open(bytes, hashes) }
+        val (orig, built) = Pack.build(contents())
+        // Flip each byte in turn: the pack must be rejected, or (header padding only) still be exactly the same content.
+        var rejected = 0
+        for (i in orig.indices step 7) {
+            val bytes = orig.copyOf()
+            bytes[i] = (bytes[i].toInt() xor 0x55).toByte()
+            try { assertEquals(built.packSha256, Pack.open(bytes, hashes).sha256) } catch (e: PackIntegrityError) { rejected++ }
+        }
+        assertTrue("most flips must be rejected, got $rejected", rejected > orig.size / 7 / 2)
     }
 
     @Test fun notAZipRejected() { assertThrows(PackIntegrityError::class.java) { Pack.open("hello".toByteArray()) } }
