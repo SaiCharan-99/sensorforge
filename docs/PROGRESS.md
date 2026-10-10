@@ -3,8 +3,8 @@
 Phases 0–3 followed tech spec §30. From Phase 4 the plan is **build-first** (user decision, see "Build-first plan"): build every feature and model slot (4–9), then data, training and acceptance (10), then rehearsal (11).
 If time runs out, the spec's cut order still applies: Laya → RelateAnything → local LLM → HandoverProof → RepRight.
 
-**Current stage:** Stage A (build), A1–A11 done; **next A12** (M1 primary: YOLOE-11S laptop export → registry). Runbook: `docs/WORKFLOW.md`, trigger `build all`.
-**Last updated:** 2026-10-10 (A11 done; resume with `continue build` at A12)
+**Current stage:** Stage A (build), A1–A11 done; A12 done; **next A13** (UI polish, QA, claims audit, airplane-mode run). Runbook: `docs/WORKFLOW.md`, trigger `build all`.
+**Last updated:** 2026-10-10 (A11 done; resume with `continue build` at A13)
 
 ## Session handoff (read this first in a new session)
 - **Last session:** A3 done 2026-10-10 (guided Forge flow, see A3 log). Next: A5 PackCheck complete (M1 detector chain, M2 embedder + H1, coaching, moved into the guided flow).
@@ -261,3 +261,9 @@ _Filled during the run._
 - Runtime: `io.github.ljcamargo:llamacpp-kotlin:0.4.0` (Apache-2.0, prebuilt llama.cpp AAR, 19 MB; arm64 .so), `sdk/runtime/LlamaBackend`. Forge only. Measured on iQOO (SF.BACKEND): load ~1 s, generate 10-11 s per sentence, CPU.
 - Result: the model loads and generates on the phone, but its JSON failed the validator on all 4 live tries (unknown keys, missing version, malformed JSON); each one fell back to the template compiler with the reason shown. **M6 gate (8 of 10 valid) not met; claim stays "guided authoring".** Mitigations added: one-shot example in the prompt, host-owned ids/version, lenient unknown-key drop. A constrained-grammar decode would be the next step.
 - Registry now persists hashes of device model files (1 GB hash is not recomputed each launch).
+
+## A12 log (M1 primary: YOLOE-11S)
+- `tools/yoloe/export.py` (ultralytics 8.4.175): fixed 9-class vocabulary from the spec entities, ONNX 320 px. **Deviation:** TFLite export is unsupported on Windows, so the phone runs it on ONNX Runtime Android 1.22.0 (`camera/OrtYoloDetector`, pure decoder `perception/YoloDecode`, 3 JVM tests). `Detector` interface; `DetectorChain` order: YOLOE -> EfficientDet-Lite2 -> Lite0 -> tags.
+- Loader times NNAPI and CPU on a blank frame and keeps the faster: iQOO NNAPI 250 ms vs CPU 72 ms, so CPU (~14 fps ceiling; camera loop runs M1 at ~5 Hz). Verified loaded in PackCheck run (`detector m1_yoloe_11s CPU 71 ms`). **Not verified:** detection quality on real props (zero-shot, scene was dark); Stage D.
+- The model files live only on the device (`files/models/`). **The instrumented tests uninstall the app and delete them**; re-push from `tools`/the scratch copies if that happens.
+- M5 RelateAnything stays not installed (Meta DINOv3 licence must be accepted by the user).

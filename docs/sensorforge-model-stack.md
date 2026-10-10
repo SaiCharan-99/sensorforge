@@ -213,3 +213,11 @@ Bundled in `sf-sdk/src/main/assets/models/`. Source for the MediaPipe files: `ht
 | M6 | SmolLM2-1.7B-Instruct, 4-bit GGUF (~1 GB) | Hugging Face, Apache-2.0 | Runs on **llama.cpp** (CPU/GPU) because Genie needs a Qualcomm account; deviation from §5 "Integration" recorded here. Forge only. Too large for git: install to device storage, not assets |
 
 Not obtainable by the agent: Qwen3-4B Genie bundle (Qualcomm AI Hub account), Laya (no source given), M7 offline language pack (installed by the user in Android settings).
+
+### Downloaded and installed 2026-10-10 (device storage `files/models/`, not in git)
+| Slot | File | Bytes | sha256 | Source / licence | Runtime and measured backend |
+|---|---|---|---|---|---|
+| M6 | smollm2-1.7b-instruct-q4_k_m.gguf | 1,055,609,536 | `decd2598bc2c8ed08c19adc3c8fdd461ee19ed5708679d1c54ef54a5a30d4f33` | Hugging Face HuggingFaceTB/SmolLM2-1.7B-Instruct-GGUF, Apache-2.0 | llama.cpp via `io.github.ljcamargo:llamacpp-kotlin:0.4.0` (Apache-2.0, prebuilt AAR), CPU; load ~1 s, ~10 s per sentence |
+| M1 primary | yoloe-11s-seg.onnx (vocabulary: adapter, box, cable, charger, envelope, impostor_cable, papers, phone, seal; 320 px) | 40,398,952 | `9d911320c779e0c9bc373769c9a383b1f7efb0b070f66c42ff6665608013fa45` | Ultralytics 8.4.175 `yoloe-11s-seg.pt`, exported by `tools/yoloe/export.py`, AGPL-3.0 (hackathon only) | **ONNX Runtime Android 1.22.0** (deviation: Ultralytics cannot export TFLite on Windows). Providers timed at load: NNAPI 250 ms, CPU 72 ms; CPU is used. Zero-shot weights, not fine-tuned for our props |
+
+Still not obtainable by the agent: M5 RelateAnything (needs Meta DINOv3 licence acceptance by the user), O1 Laya (no source), Qwen3-4B Genie bundle (Qualcomm account), M7 offline language pack (Android settings).

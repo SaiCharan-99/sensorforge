@@ -29,6 +29,7 @@ dependencies {
     api(libs.camerax.view)
     implementation(libs.zxing.core)
     implementation(libs.llamacpp.kotlin)
+    implementation(libs.onnxruntime.android)
     implementation(libs.mediapipe.tasks.vision)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     testImplementation(libs.junit)

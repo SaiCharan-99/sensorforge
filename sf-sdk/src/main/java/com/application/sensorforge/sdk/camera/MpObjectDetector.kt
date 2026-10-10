@@ -24,10 +24,10 @@ class MpObjectDetector(
     val modelAsset: String = "models/efficientdet_lite0.tflite",
     private val scoreThreshold: Float = 0.35f,
     private val maxResults: Int = 10,
-) : AutoCloseable {
-    val backend: String
+) : Detector {
+    override val backend: String
     private val detector: ObjectDetector
-    var lastMs = 0.0; private set
+    override var lastMs = 0.0; private set
 
     private val meter: LatencyMeter
 
@@ -57,7 +57,7 @@ class MpObjectDetector(
         meter = LatencyMeter(modelAsset.substringAfterLast('/'), "MediaPipe Tasks 0.10.21 (TFLite)", "delegate", backend, "upright bitmap")
     }
 
-    fun detect(upright: Bitmap): List<Detection> {
+    override fun detect(upright: Bitmap): List<Detection> {
         val t0 = SystemClock.elapsedRealtimeNanos()
         val r = detector.detect(BitmapImageBuilder(upright).build())
         lastMs = (SystemClock.elapsedRealtimeNanos() - t0) / 1e6
