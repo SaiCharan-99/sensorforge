@@ -3,7 +3,7 @@
 Phases 0–3 followed tech spec §30. From Phase 4 the plan is **build-first** (user decision, see "Build-first plan"): build every feature and model slot (4–9), then data, training and acceptance (10), then rehearsal (11).
 If time runs out, the spec's cut order still applies: Laya → RelateAnything → local LLM → HandoverProof → RepRight.
 
-**Current stage:** Stage A (build), A1–A11 done; A12 done; **next A13** (UI polish, QA, claims audit, airplane-mode run). Runbook: `docs/WORKFLOW.md`, trigger `build all`.
+**Current stage:** Stage C (handover). A1–A13 built (A13: design.md section 8 accessibility pass still open), Stage B simulation test done. Next: user runs Stage D with real data, then says "results:".
 **Last updated:** 2026-10-10 (A11 done; resume with `continue build` at A13)
 
 ## Session handoff (read this first in a new session)
@@ -172,7 +172,17 @@ If time runs out, the spec's cut order still applies: Laya → RelateAnything �
 | 2026-10-10 | Post-peak stillness (§18) is measured from 0.25 s after the acceleration-magnitude peak (`SETTLE_NANOS`) so the impact tail is excluded |
 
 ## Stage B results (simulation test)
-_Filled during the run._
+Run 2026-10-10 on the iQOO (SM8850), build after commit bae19da.
+| Check | Result |
+|---|---|
+| JVM tests `:sf-sdk:test` | all pass (includes golden timelines, Simulator for every scenario of packcheck/sealsafe/unboxing, RepRight 10, HandoverProof 13, Authoring 5, YoloDecode 3, pack/receipt tamper tests) |
+| Instrumented tests | 2 of 2 pass (Keystore round trip etc.); they uninstall the app, so the two device models were re-pushed afterwards |
+| CrashGuard (SIMULATION replay) | arm -> replay -> `Possible impact detected`, countdown 15 s, alarm on (torch, siren, vibration), Cancel -> `CANCELLED: AUDITED, NO ALERT`, alarm off. Peak 10.4 g, threshold 4.5 g calibrated, no head active |
+| Forge flow (SealSafe + custom Pill box), done in A3/A4 | Describe -> Plan -> simulated Capture -> Train (hash changed, 218/218 params) -> Test (no false accepts) -> Export `.sfpkg` -> Import hash ok |
+| HelloForge (A8) | SealSafe pack imported, `pack sealsafe v1 sha256 55cb2041...` shown |
+| Receipt tamper | `PackReceiptTest`: any byte change -> invalid |
+| Airplane mode (setting = 1) | M6 generate, M1 YOLOE, PackCheck start, RepRight config, HandoverProof config, Backend log, Settings all open and run, logged OFFLINE, 0 crashes. INTERNET permission stripped from both apps |
+| Not run | live camera runs with real props/people (Stage D); H3 4-class train with real shake/drop; accessibility checklist (design.md section 8) |
 
 ## Questions for user (decisions taken by default during the run)
 - SealSafe start-time rule implemented as `AFTER_PARAM` (proposed; not yet confirmed by the user). Needs a new `time` parameter type (UTC epoch ms) and `Timeline.start_utc_ms`; missing either is a `ContractError`.
