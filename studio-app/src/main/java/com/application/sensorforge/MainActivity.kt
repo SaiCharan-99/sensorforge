@@ -2,6 +2,7 @@ package com.application.sensorforge
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
@@ -14,8 +15,13 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.application.sensorforge.crashguard.ArmedCard
@@ -23,22 +29,28 @@ import com.application.sensorforge.crashguard.CountdownScreen
 import com.application.sensorforge.crashguard.CrashGuardViewModel
 import com.application.sensorforge.crashguard.DetectionCard
 import com.application.sensorforge.crashguard.EvidenceScreen
-import com.application.sensorforge.crashguard.ModelCard
 import com.application.sensorforge.crashguard.isIncidentScreen
-import com.application.sensorforge.perception.CameraCheckCard
+import com.application.sensorforge.forge.ForgeFlow
+import com.application.sensorforge.forge.ForgeViewModel
 import com.application.sensorforge.packcheck.PackCheckScreen
 import com.application.sensorforge.packcheck.PackCheckViewModel
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
+import com.application.sensorforge.packcheck.SaveAs
+import com.application.sensorforge.perception.CameraCheckCard
 import com.application.sensorforge.sdk.detect.IncidentState
+import com.application.sensorforge.sdk.forge.UseCaseDef
+import com.application.sensorforge.sdk.forge.UseCases
+import com.application.sensorforge.ui.PrimaryButton
+import com.application.sensorforge.ui.SecondaryButton
+import com.application.sensorforge.ui.SfCard
+import com.application.sensorforge.ui.StatusChip
 import com.application.sensorforge.ui.theme.SensorforgeTheme
+import com.application.sensorforge.ui.theme.SfTheme
+import com.application.sensorforge.ui.theme.TextSecondary
 
 class MainActivity : ComponentActivity() {
     private val crashGuard: CrashGuardViewModel by viewModels()
     private val packCheck: PackCheckViewModel by viewModels()
+    private val forge: ForgeViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -46,35 +58,103 @@ class MainActivity : ComponentActivity() {
         setContent {
             SensorforgeTheme {
                 Scaffold(modifier = Modifier.fillMaxSize(), containerColor = MaterialTheme.colorScheme.background) { p ->
-                    val model by crashGuard.modelUi.collectAsState()
-                    val live by crashGuard.live.collectAsState()
                     val inc by crashGuard.incident.collectAsState()
-                    var tab by rememberSaveable { mutableIntStateOf(0) }
+                    // Routes: home | uc:<id> | forge:<id> | run:<id> | run:<id>:<planItemId> | camera
+                    var route by rememberSaveable { mutableStateOf("home") }
                     Column(Modifier.padding(p)) {
-                        if (!inc.state.isIncidentScreen() && inc.state != IncidentState.COUNTDOWN) {
-                            TabRow(selectedTabIndex = tab) {
-                                Tab(tab == 0, { tab = 0 }, text = { Text("CrashGuard") })
-                                Tab(tab == 1, { tab = 1 }, text = { Text("PackCheck") })
-                                Tab(tab == 2, { tab = 2 }, text = { Text("Camera") })
-                            }
-                        }
                         when {
                             inc.state == IncidentState.COUNTDOWN -> CountdownScreen(inc, crashGuard)
                             inc.state.isIncidentScreen() -> EvidenceScreen(inc, crashGuard)
-                            tab == 1 -> { val pc by packCheck.ui.collectAsState(); PackCheckScreen(packCheck, pc) }
-                            tab == 2 -> Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp)) { CameraCheckCard() }
-                            else -> Column(
-                                Modifier.verticalScroll(rememberScrollState()).padding(16.dp),
-                                verticalArrangement = Arrangement.spacedBy(12.dp),
-                            ) {
-                                Text("CrashGuard", style = MaterialTheme.typography.headlineLarge)
-                                ArmedCard(live, inc, crashGuard)
-                                DetectionCard(inc, model, crashGuard)
-                                ModelCard(model, crashGuard)
-                            }
+                            else -> Router(route) { route = it }
                         }
                     }
                 }
+            }
+        }
+    }
+
+    @Composable
+    private fun Router(route: String, go: (String) -> Unit) {
+        val parts = route.split(':')
+        val id = parts.getOrNull(1)
+        BackHandler(enabled = route != "home") {
+            go(when (parts[0]) { "forge", "run", "camera" -> if (id != null && parts[0] != "camera") "uc:$id" else "home"; else -> "home" })
+        }
+        when (parts[0]) {
+            "uc" -> UseCaseScreen(UseCases.byId(id!!), go)
+            "forge" -> {
+                LaunchedEffect(id) { forge.open(id!!) }
+                ForgeFlow(
+                    forge, crashGuard,
+                    onRun = { item -> go("run:$id" + (item?.let { ":$it" } ?: "")) },
+                    onBack = { go("uc:$id") },
+                )
+            }
+            "run" -> RunScreen(id!!, parts.getOrNull(2), go)
+            "camera" -> Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                SecondaryButton("‹ Home") { go("home") }
+                CameraCheckCard()
+            }
+            else -> HomeScreen(go)
+        }
+    }
+
+    @Composable
+    private fun HomeScreen(go: (String) -> Unit) {
+        Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("SensorForge", style = MaterialTheme.typography.headlineLarge)
+            Text("The AI sees. The code decides. The receipt proves it.", style = MaterialTheme.typography.bodyLarge, color = TextSecondary)
+            UseCases.ALL.forEach { def ->
+                SfCard {
+                    Text(def.title, style = MaterialTheme.typography.titleMedium)
+                    Text(def.blurb, style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+                    StatusChip(if (def.mode == "detect") "Detect · sensors" else "Verify · camera", SfTheme.colors.info, if (def.mode == "detect") "∿" else "◉")
+                    PrimaryButton("Open ${def.title}") { go("uc:${def.id}") }
+                }
+            }
+            SecondaryButton("Camera diagnostics") { go("camera") }
+        }
+    }
+
+    @Composable
+    private fun UseCaseScreen(def: UseCaseDef, go: (String) -> Unit) {
+        Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            SecondaryButton("‹ Home") { go("home") }
+            Text(def.title, style = MaterialTheme.typography.headlineLarge)
+            Text(def.blurb, style = MaterialTheme.typography.bodyLarge)
+            SfCard {
+                Text("Guided setup", style = MaterialTheme.typography.titleMedium)
+                Text("Describe → Plan → Capture → Train → Test → Export → Import", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+                PrimaryButton("Set up ${def.title}") { go("forge:${def.id}") }
+            }
+            SfCard {
+                Text("Run", style = MaterialTheme.typography.titleMedium)
+                Text(if (def.mode == "detect") "Arm CrashGuard, calibrate, replay." else "Verify live with the camera using the active spec or your latest exported pack.", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+                PrimaryButton("Run ${def.title}") { go("run:${def.id}") }
+            }
+        }
+    }
+
+    @Composable
+    private fun RunScreen(id: String, itemId: String?, go: (String) -> Unit) {
+        val def = UseCases.byId(id)
+        Column {
+            SecondaryButton("‹ ${def.title}", modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) { go(if (itemId != null) "forge:$id" else "uc:$id") }
+            if (def.mode == "detect") {
+                val model by crashGuard.modelUi.collectAsState()
+                val live by crashGuard.live.collectAsState()
+                val inc by crashGuard.incident.collectAsState()
+                Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("CrashGuard", style = MaterialTheme.typography.headlineLarge)
+                    ArmedCard(live, inc, crashGuard)
+                    DetectionCard(inc, model, crashGuard)
+                }
+            } else {
+                val pc by packCheck.ui.collectAsState()
+                LaunchedEffect(id, itemId) { forge.open(id); packCheck.configure(forge.runTarget(), def.title, forge.runParams()) }
+                val title = forge.ui.value.plan?.items?.firstOrNull { it.id == itemId }?.title
+                val save = if (itemId != null && title != null) SaveAs(title) { r -> forge.saveLive(itemId, r.timeline) } else null
+                PackCheckScreen(packCheck, pc, save)
             }
         }
     }

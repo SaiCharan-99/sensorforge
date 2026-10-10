@@ -3,13 +3,13 @@
 Phases 0–3 followed tech spec §30. From Phase 4 the plan is **build-first** (user decision, see "Build-first plan"): build every feature and model slot (4–9), then data, training and acceptance (10), then rehearsal (11).
 If time runs out, the spec's cut order still applies: Laya → RelateAnything → local LLM → HandoverProof → RepRight.
 
-**Current stage:** Stage A (build), A1, A2 done; **A3 in progress** (SDK side done, studio UI not started). Runbook: `docs/WORKFLOW.md`, trigger `build all`.
-**Last updated:** 2026-10-10 (A3 mid-way; resume with `continue build`)
+**Current stage:** Stage A (build), A1–A3 done; **next A4** (studio shell). Runbook: `docs/WORKFLOW.md`, trigger `build all`.
+**Last updated:** 2026-10-10 (A3 done; resume with `continue build` at A4)
 
 ## Session handoff (read this first in a new session)
-- **Last session:** Phase 3 done 2026-10-10 (commits `46a6c21` onward).
+- **Last session:** A3 done 2026-10-10 (guided Forge flow, see A3 log). Next: A4 studio shell (S01 home incl. "Forge new verifier", S16/S17/S18, session JSONL logs).
 - **Code so far:** `sf-sdk/.../sdk/contracts/`, `engine/` (`VerifyEngine`), `detect/`, `train/` (`HeadTrainer`, `HeadStore`), `sensors/`, **`perception/`** (pure: `Tags` payload grammar `SF1|OBJ|cls|code`, `SF1|ZONE|zone|i`, `SF1|FLOOR|zone`, `SF1|STATE|cls|state`; `Tracker`; `TimelineBuilder`; `Coach`; `CropEmbedding`), **`camera/`** (Android: `TagFrameReader` ZXing + quality + embeddings, `CameraVerifier`, `IdentityForge`). Public API in `sdk/SensorForge.kt` (`load`, `identityForge`, `TagSheet`) and `sdk/Verifier.kt` (`Verifier`, `VerifierEvent`, `VerifierResult`, `PackInfo`). `load()` takes a spec JSON path (`asset:` or file) until `.sfpkg` lands. `VerifierResult.receiptPath` is null until Phase 4 receipts. `PurityTest` covers contracts/engine/detect/train/perception.
-- **studio-app:** tabs CrashGuard | PackCheck | Camera (S01 home not built). PackCheck = `packcheck/PackCheckViewModel.kt` + `PackCheckScreens.kt` (public API only).
+- **studio-app:** router: Home (tiles) → UseCase → Forge (7 steps) / Run; Camera diagnostics. PackCheck = `packcheck/PackCheckViewModel.kt` + `PackCheckScreens.kt` (public API only).
 - **Tests:** `./gradlew :sf-sdk:test` (68 pass); instrumented: `./gradlew :studio-app:connectedDebugAndroidTest` (**uninstalls the app afterwards, which wipes recordings, heads and incidents**). Golden timelines `fixtures/timelines/`, specs `fixtures/specs/`, printable tags `fixtures/tags/`.
 - **Install:** `./gradlew assembleDebug`, then `adb install -r studio-app/build/outputs/apk/debug/studio-app-debug.apk`. Device serial `10BFAX1BPJ0010U`.
 - **Build facts:** AGP 9.3.3 (built-in Kotlin), Gradle 9.5, Kotlin 2.2.10, compileSdk/targetSdk 37, minSdk 26, kotlinx-serialization 1.9.0, coroutines 1.10.2, CameraX 1.5.1, ZXing core 3.5.3. Package root `com.application.sensorforge`.
@@ -191,12 +191,14 @@ _Filled during the run._
 - `SensorForge.forge(ctx, id)`, `openPack`, `cropHeadForge`; `IdentityForge` now takes a head id and has `simulate()` (SIMULATION crops, flagged in `IdentityExample.simulation`).
 - `detect/ImuSynth` (SIMULATION normal/shake/drop) + `RecordingStore.saveSimulated`; test trains H3 on them and the hash changes.
 - `studio-app/ui/Components.kt`: ErrorCard, InfoCard, ForgeStepper, VerdictBanner, SectionTitle, Mono.
-**Still to do for A3 (studio-app UI):**
-1. Router (Home, UseCase, Forge(step), Run, Receipt, ...) in `MainActivity` replacing the tab bar.
-2. `ForgeViewModel` + 7 step pages: Describe (spec cards, JSON toggle, sentence -> TemplateCompiler, save version with regression deltas), Plan (edit/accept), Capture (RUN: live record via `SensorForge.load` on the active spec path + `ForgeProject.simulate`; CROP: `cropForge`; IMU: reuse `CrashGuardViewModel`, add `ImuModel.simulate` using `ImuSynth`; held-out toggle; import timeline JSON / IMU CSV), Train, Test, Export (FileProvider share), Import (pick .sfpkg, `openPack`, run live).
-3. Generalise `PackCheckViewModel/Screens` into a per-use-case verify screen (needed for SealSafe), move the H1 card into Train.
-4. Custom use cases ("Forge new verifier") via a stored spec + meta.
-5. Then: install, simulation run, commit, tick A3.
+**Done (studio-app UI, verified on the iQOO with SIMULATION data):**
+- Router in `MainActivity` (home | uc:<id> | forge:<id> | run:<id>[:<planItem>] | camera) replaces the tab bar; back handling; CrashGuard countdown/evidence still take over globally.
+- `forge/ForgeViewModel` + `forge/ForgeScreens.kt`: 7 pages (Describe, Plan, Capture, Train, Test, Export, Import) with gating (plan must be accepted, min counts, typed errors, SIMULATION chip when synthetic data is present).
+- Capture: RUN (record live via Run screen with "Save as example", import timeline JSON, simulate), CROP (camera capture + simulate), IMU (record, simulate via `ImuSynth`), "Fill plan with SIMULATION examples", remove simulated, delete all.
+- PackCheck Run screen generalised (`PackCheckViewModel.configure(path, title, params)`), so SealSafe runs the same screen from its exported pack; the H1 card is now in Train.
+- Share via FileProvider (`file_paths.xml`).
+- Device run (SealSafe): plan accepted → filled with simulated examples → H2 trained (218/218 params changed, hash changed) → approved → Test: no false accepts on 55 examples → exported `sealsafe-v1-99a8f624.sfpkg` → Import: hash ok, stack ok → Run live opens. CrashGuard: Plan → fill → Train shows ModelCard.
+**Deferred:** custom "Forge new verifier" use cases (needs stored defs; built with the S01 home in A4). Video clip import → A5.
 **Notes:** video clip import needs a bitmap path in perception (do in A5). Python edits must use `encoding='utf-8'` (a cp1252 write once corrupted `SensorForge.kt`; fixed).
 
 ## Blockers

@@ -20,6 +20,8 @@ import kotlinx.coroutines.launch
 import java.io.File
 import com.application.sensorforge.sdk.train.TrainingReport
 import java.util.Locale
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 
 /** PackCheck end app: uses only the public SDK API (`SensorForge.load/start/events/stop`). */
 class PackCheckViewModel(app: Application) : AndroidViewModel(app) {
@@ -56,6 +58,19 @@ class PackCheckViewModel(app: Application) : AndroidViewModel(app) {
     private var ttsReady = false
 
     private val forge = SensorForge.identityForge(app, "packcheck", tagClass = "charger", classes = listOf("charger", "impostor_cable"))
+
+    /** Which pack the Run screen verifies: a spec path / `.sfpkg` plus host parameters (e.g. start_time). */
+    var packPath: String = PACK
+        private set
+    var title by androidx.compose.runtime.mutableStateOf("PackCheck")
+        private set
+    private var params: Map<String, Any> = emptyMap()
+
+    fun configure(path: String, title: String, params: Map<String, Any>) {
+        if (verifier != null) return
+        packPath = path; this.title = title; this.params = params
+        _ui.value = Ui(head = _ui.value.head)
+    }
 
     private fun refreshHead(msg: String? = null) {
         val h = _ui.value.head
@@ -97,7 +112,7 @@ class PackCheckViewModel(app: Application) : AndroidViewModel(app) {
     fun start(previewView: PreviewView) {
         if (verifier != null) return
         try {
-            val v = SensorForge.load(getApplication(), PACK)
+            val v = SensorForge.load(getApplication(), packPath, params)
             verifier = v
             _ui.value = Ui(Phase.LIVE, pack = v.pack, head = _ui.value.head)
             collect = viewModelScope.launch {
@@ -133,7 +148,7 @@ class PackCheckViewModel(app: Application) : AndroidViewModel(app) {
     /** Called when the app leaves the foreground: never keep the camera running unseen. */
     fun onHidden() { if (verifier != null) stop() }
 
-    fun tags(): List<Pair<String, String>> = TagSheet.forPack(getApplication(), PACK)
+    fun tags(): List<Pair<String, String>> = TagSheet.forPack(getApplication(), packPath)
 
     /** Writes one PNG per tag to app files (pull with adb, print at ≥ 4 cm). */
     fun exportTags(): File {

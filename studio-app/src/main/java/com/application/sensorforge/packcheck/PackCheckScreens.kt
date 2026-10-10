@@ -59,11 +59,14 @@ private val STEP_LABELS = mapOf(
     "box_empty" to "Box empty",
 )
 
+/** Forge Capture: offers to store a live result as an example of a plan item. */
+class SaveAs(val itemTitle: String, val onSave: (VerifierResult) -> Unit)
+
 /** S08 idle card / live screen / S09 result, by phase. */
 @Composable
-fun PackCheckScreen(vm: PackCheckViewModel, ui: PackCheckViewModel.Ui) {
+fun PackCheckScreen(vm: PackCheckViewModel, ui: PackCheckViewModel.Ui, saveAs: SaveAs? = null) {
     when (ui.phase) {
-        PackCheckViewModel.Phase.RESULT -> ResultScreen(ui.result!!, vm)
+        PackCheckViewModel.Phase.RESULT -> ResultScreen(ui.result!!, vm, saveAs)
         else -> LiveScreen(vm, ui)
     }
 }
@@ -78,7 +81,7 @@ private fun LiveScreen(vm: PackCheckViewModel, ui: PackCheckViewModel.Ui) {
     val live = ui.phase == PackCheckViewModel.Phase.LIVE
 
     Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("PackCheck", style = MaterialTheme.typography.headlineLarge)
+        Text(vm.title, style = MaterialTheme.typography.headlineLarge)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             StatusChip("Verify · camera", SfTheme.colors.info, "◉")
             StatusChip("Controlled props (QR tags)", SfTheme.colors.pending, "▣")
@@ -106,7 +109,7 @@ private fun LiveScreen(vm: PackCheckViewModel, ui: PackCheckViewModel.Ui) {
         }
 
         if (!granted) PrimaryButton("Allow camera") { launcher.launch(Manifest.permission.CAMERA) }
-        else if (!live) PrimaryButton("Start PackCheck") { vm.start(previewView) }
+        else if (!live) PrimaryButton("Start ${vm.title}") { vm.start(previewView) }
         else PrimaryButton("Stop and verify") { vm.stop() }
 
         if (live) SfCard {
@@ -121,18 +124,17 @@ private fun LiveScreen(vm: PackCheckViewModel, ui: PackCheckViewModel.Ui) {
                         if (observed) SfTheme.colors.pass else if (active) SfTheme.colors.info else SfTheme.colors.pending,
                         if (observed) "✓" else if (active) "▶" else "·",
                     )
-                    Text(STEP_LABELS[id] ?: id)
+                    Text(STEP_LABELS[id] ?: com.application.sensorforge.ui.prettyStep(id))
                 }
             }
             ui.frame?.let { Text("%.0f fps · decode %.0f ms".format(it.fps, it.decodeMs), style = MonoStyle) }
             ui.backend?.let { Text(it, style = MonoStyle) }
         }
 
-        if (!live) IdentityHeadCard(vm, ui.head, previewView)
         if (!live) {
             SfCard {
                 Text("Props", style = MaterialTheme.typography.titleMedium)
-                Text("Each prop carries a printed QR tag. Box: 4 corner tags on the rim, a floor tag inside, 'open' tag inside the lid, 'closed' tag on top. Adapter label AD-42.")
+                Text("Each prop carries a printed QR tag (corner, floor, state and object tags for this procedure).")
                 SecondaryButton(if (showTags) "Hide tags" else "Show tags") { showTags = !showTags }
                 if (showTags) {
                     var exported by remember { mutableStateOf<String?>(null) }
@@ -151,7 +153,7 @@ private fun LiveScreen(vm: PackCheckViewModel, ui: PackCheckViewModel.Ui) {
 }
 
 @Composable
-private fun IdentityHeadCard(vm: PackCheckViewModel, h: PackCheckViewModel.HeadUi, previewView: PreviewView) = SfCard {
+fun IdentityHeadCard(vm: PackCheckViewModel, h: PackCheckViewModel.HeadUi, previewView: PreviewView) = SfCard {
     Text("Identity head (H1)", style = MaterialTheme.typography.titleMedium)
     Text("Genuine charger vs look-alike impostor cable, both wearing the charger tag. Embedding: handcrafted YUV histogram (no image encoder yet). Trained on this phone, CPU.")
     h.counts.forEach { (c, n) -> Text("$c: ${n.first} dev · ${n.second} held-out", style = MonoStyle) }
@@ -196,7 +198,7 @@ private fun Overlay(f: com.application.sensorforge.sdk.VerifierEvent.Frame) {
 }
 
 @Composable
-private fun ResultScreen(r: VerifierResult, vm: PackCheckViewModel) {
+private fun ResultScreen(r: VerifierResult, vm: PackCheckViewModel, saveAs: SaveAs? = null) {
     val c = SfTheme.colors
     val (colors, glyph) = when (r.verdict) {
         Verdict.PASS -> c.pass to "✓"
@@ -204,7 +206,7 @@ private fun ResultScreen(r: VerifierResult, vm: PackCheckViewModel) {
         Verdict.UNVERIFIED -> c.unverified to "?"
     }
     Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("PackCheck result", style = MaterialTheme.typography.headlineLarge)
+        Text("${vm.title} result", style = MaterialTheme.typography.headlineLarge)
         Box(Modifier.fillMaxWidth().background(colors.container, RoundedCornerShape(16.dp)).padding(20.dp)) {
             Text("$glyph ${r.verdict}", style = MaterialTheme.typography.displaySmall, color = colors.content)
         }
@@ -222,7 +224,7 @@ private fun ResultScreen(r: VerifierResult, vm: PackCheckViewModel) {
                 }
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     StatusChip(s.status.name, sc, g)
-                    Text((STEP_LABELS[s.id] ?: s.id) + (s.t?.let { " @ %.1f s".format(it) } ?: ""))
+                    Text((STEP_LABELS[s.id] ?: com.application.sensorforge.ui.prettyStep(s.id)) + (s.t?.let { " @ %.1f s".format(it) } ?: ""))
                 }
             }
         }
@@ -245,6 +247,10 @@ private fun ResultScreen(r: VerifierResult, vm: PackCheckViewModel) {
         var showReceipt by remember { mutableStateOf(false) }
         SecondaryButton(if (showReceipt) "Hide receipt" else "View receipt") { showReceipt = !showReceipt }
         if (showReceipt) com.application.sensorforge.ui.ReceiptView(r.receiptPath)
-        PrimaryButton("New check") { vm.reset() }
+        saveAs?.let { sa ->
+            var saved by remember(r) { mutableStateOf(false) }
+            PrimaryButton(if (saved) "Saved to '${sa.itemTitle}' ✓" else "Save as example: ${sa.itemTitle}", enabled = !saved) { sa.onSave(r); saved = true }
+        }
+        if (saveAs == null) PrimaryButton("New check") { vm.reset() } else SecondaryButton("New check") { vm.reset() }
     }
 }

@@ -11,6 +11,7 @@ import com.application.sensorforge.sdk.detect.DetectionSettings
 import com.application.sensorforge.sdk.detect.ImuChannel
 import com.application.sensorforge.sdk.detect.ImuRingBuffer
 import com.application.sensorforge.sdk.detect.ImuSample
+import com.application.sensorforge.sdk.detect.ImuSynth
 import com.application.sensorforge.sdk.detect.IncidentController
 import com.application.sensorforge.sdk.detect.IncidentEvidence
 import com.application.sensorforge.sdk.detect.IncidentState
@@ -225,6 +226,22 @@ class CrashGuardViewModel(app: Application) : AndroidViewModel(app) {
             _model.update { it.copy(recorder = null) }
             refresh()
         }
+    }
+
+    /** SIMULATION: [n] synthetic recordings of [label] (labelled in the file header, never LIVE). */
+    fun simulate(label: String, n: Int) {
+        val heldOut = _model.value.heldOutNext
+        viewModelScope.launch { withContext(Dispatchers.IO) { simulateSync(label, n, heldOut) } }
+    }
+
+    /** Blocking variant for the Forge "fill plan" action (call off the main thread). */
+    fun simulateSync(label: String, n: Int, heldOut: Boolean) {
+        val base = model.recordings.list().size
+        repeat(n) { i ->
+            val seed = (base + i).toLong() + if (heldOut) 1000 else 0
+            model.recordings.saveSimulated(label, heldOut, "sim-$label-${if (heldOut) "held" else "dev"}-$seed", ImuSynth.generate(label, seed))
+        }
+        refresh()
     }
 
     fun train() {
