@@ -267,3 +267,9 @@ _Filled during the run._
 - Loader times NNAPI and CPU on a blank frame and keeps the faster: iQOO NNAPI 250 ms vs CPU 72 ms, so CPU (~14 fps ceiling; camera loop runs M1 at ~5 Hz). Verified loaded in PackCheck run (`detector m1_yoloe_11s CPU 71 ms`). **Not verified:** detection quality on real props (zero-shot, scene was dark); Stage D.
 - The model files live only on the device (`files/models/`). **The instrumented tests uninstall the app and delete them**; re-push from `tools`/the scratch copies if that happens.
 - M5 RelateAnything stays not installed (Meta DINOv3 licence must be accepted by the user).
+
+## A13 log (partial, 2026-10-10)
+- Claims audit of UI strings against agent-instructions.md claims policy: no "never say" phrase, no SENT, no uncited backend claim found (grep over studio-app, hello-forge, sf-sdk).
+- **Network permission removed:** INTERNET and ACCESS_NETWORK_STATE were merged in from a dependency; both app manifests now strip them (`tools:node="remove"`), verified with `dumpsys package` (0). No network call is possible, which backs rule 9.
+- **Airplane-mode run (iQOO, `cmd connectivity airplane-mode enable`, setting = 1):** M6 SmolLM2 load 1.27 s + generate 14.7 s, M1 YOLOE-11S load/warm (NNAPI 343 ms, CPU 84 ms -> CPU chosen), M2 embedder, PackCheck start; all logged `OFFLINE` in the backend log, no crash. Not run offline yet: RepRight, HandoverProof, CrashGuard replay, export/import of a pack.
+- **Still open in A13:** the full design.md section 8 checklist (contrast, 48 dp targets, 1.3x font, 360 dp, TalkBack) and a screen-by-screen click-through of every state.
