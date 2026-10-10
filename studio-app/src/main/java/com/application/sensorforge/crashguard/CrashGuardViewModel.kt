@@ -283,7 +283,10 @@ class CrashGuardViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    private fun log(what: String) = Log.i(TAG, "$what (head=${_model.value.active?.let { "v$it" } ?: "none"})")
+    private fun log(what: String) {
+        Log.i(TAG, "$what (head=${_model.value.active?.let { "v$it" } ?: "none"})")
+        com.application.sensorforge.sdk.runtime.SessionLog.log("crashguard.$what", "head" to _model.value.active)
+    }
 
     override fun onCleared() { source?.stop(); location.stop(); alarm.stop() }
 

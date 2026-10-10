@@ -128,7 +128,9 @@ class PackCheckViewModel(app: Application) : AndroidViewModel(app) {
                     }
                 }
             }
-            v.start(previewView) { r -> _ui.value = _ui.value.copy(phase = Phase.RESULT, result = r) }
+            v.start(previewView) { r ->
+                com.application.sensorforge.sdk.runtime.SessionLog.log("verify.result", "pack" to v.pack.id, "pack_sha256" to v.pack.sha256, "verdict" to r.verdict.name, "reasons" to r.reasons.joinToString { x -> "${x.code}:${x.ref}" }, "receipt" to r.receiptPath)
+                _ui.value = _ui.value.copy(phase = Phase.RESULT, result = r) }
         } catch (e: Exception) {
             verifier = null
             _ui.value = Ui(head = _ui.value.head, error = "${e::class.simpleName}: ${e.message}")

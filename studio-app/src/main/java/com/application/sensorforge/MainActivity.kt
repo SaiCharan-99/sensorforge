@@ -20,6 +20,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -38,7 +39,10 @@ import com.application.sensorforge.packcheck.SaveAs
 import com.application.sensorforge.perception.CameraCheckCard
 import com.application.sensorforge.sdk.detect.IncidentState
 import com.application.sensorforge.sdk.forge.UseCaseDef
-import com.application.sensorforge.sdk.forge.UseCases
+import com.application.sensorforge.sdk.SensorForge
+import com.application.sensorforge.shell.BackendLogScreen
+import com.application.sensorforge.shell.NewVerifierDialog
+import com.application.sensorforge.shell.SettingsScreen
 import com.application.sensorforge.ui.PrimaryButton
 import com.application.sensorforge.ui.SecondaryButton
 import com.application.sensorforge.ui.SfCard
@@ -55,6 +59,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        com.application.sensorforge.sdk.runtime.SessionLog.init(this)
+        com.application.sensorforge.sdk.runtime.BackendLog.init(this)
         setContent {
             SensorforgeTheme {
                 Scaffold(modifier = Modifier.fillMaxSize(), containerColor = MaterialTheme.colorScheme.background) { p ->
@@ -81,7 +87,7 @@ class MainActivity : ComponentActivity() {
             go(when (parts[0]) { "forge", "run", "camera" -> if (id != null && parts[0] != "camera") "uc:$id" else "home"; else -> "home" })
         }
         when (parts[0]) {
-            "uc" -> UseCaseScreen(UseCases.byId(id!!), go)
+            "uc" -> UseCaseScreen(SensorForge.useCase(this@MainActivity, id!!), go)
             "forge" -> {
                 LaunchedEffect(id) { forge.open(id!!) }
                 ForgeFlow(
@@ -91,6 +97,8 @@ class MainActivity : ComponentActivity() {
                 )
             }
             "run" -> RunScreen(id!!, parts.getOrNull(2), go)
+            "backend" -> BackendLogScreen { go("home") }
+            "settings" -> SettingsScreen({ go("home") }, { forge.close() })
             "camera" -> Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 SecondaryButton("‹ Home") { go("home") }
                 CameraCheckCard()
@@ -104,7 +112,8 @@ class MainActivity : ComponentActivity() {
         Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("SensorForge", style = MaterialTheme.typography.headlineLarge)
             Text("The AI sees. The code decides. The receipt proves it.", style = MaterialTheme.typography.bodyLarge, color = TextSecondary)
-            UseCases.ALL.forEach { def ->
+            var showNew by remember { mutableStateOf(false) }
+            SensorForge.useCases(this@MainActivity).forEach { def ->
                 SfCard {
                     Text(def.title, style = MaterialTheme.typography.titleMedium)
                     Text(def.blurb, style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
@@ -112,7 +121,11 @@ class MainActivity : ComponentActivity() {
                     PrimaryButton("Open ${def.title}") { go("uc:${def.id}") }
                 }
             }
+            PrimaryButton("Forge new verifier") { showNew = true }
+            SecondaryButton("Backend log") { go("backend") }
+            SecondaryButton("Settings & privacy") { go("settings") }
             SecondaryButton("Camera diagnostics") { go("camera") }
+            if (showNew) NewVerifierDialog({ showNew = false }) { def -> showNew = false; go("forge:${def.id}") }
         }
     }
 
@@ -137,7 +150,7 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     private fun RunScreen(id: String, itemId: String?, go: (String) -> Unit) {
-        val def = UseCases.byId(id)
+        val def = SensorForge.useCase(this@MainActivity, id)
         Column {
             SecondaryButton("‹ ${def.title}", modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) { go(if (itemId != null) "forge:$id" else "uc:$id") }
             if (def.mode == "detect") {

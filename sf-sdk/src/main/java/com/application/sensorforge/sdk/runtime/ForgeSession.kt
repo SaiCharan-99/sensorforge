@@ -47,7 +47,8 @@ data class ExportResult(val file: File, val manifest: PackManifest, val warnings
 class ForgeSession internal constructor(private val context: Context, val def: UseCaseDef) {
     private val app = context.applicationContext
     val project = ForgeProject(File(app.filesDir, "forge/${def.id}"), def) {
-        app.assets.open(def.specAsset).use { it.readBytes().decodeToString() }
+        if (def.specAsset.startsWith("file:")) File(def.specAsset.removePrefix("file:")).readText()
+        else app.assets.open(def.specAsset).use { it.readBytes().decodeToString() }
     }
     private val registry get() = ModelRegistry.get(app)
     private val crop = mutableMapOf<String, IdentityForge>()
@@ -108,7 +109,7 @@ class ForgeSession internal constructor(private val context: Context, val def: U
     fun latestPack(): File? = packs().firstOrNull()
 
     companion object {
-        fun forId(context: Context, id: String) = ForgeSession(context, UseCases.byId(id))
+        fun forId(context: Context, id: String) = ForgeSession(context, CustomUseCases.byId(context, id))
 
         /** Opens a pack file and reports a typed outcome (Import step, HelloForge). */
         fun openPack(context: Context, file: File): PackOpen = try {

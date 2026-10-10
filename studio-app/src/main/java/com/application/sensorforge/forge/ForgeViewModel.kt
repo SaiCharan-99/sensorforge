@@ -124,6 +124,7 @@ class ForgeViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    private fun log(kind: String, vararg d: Pair<String, Any?>) = com.application.sensorforge.sdk.runtime.SessionLog.log(kind, *d)
     private fun msg(m: String) = _ui.update { it.copy(message = m, error = null) }
     private fun err(m: String) = _ui.update { it.copy(error = m, message = null) }
 
@@ -159,6 +160,7 @@ class ForgeViewModel(app: Application) : AndroidViewModel(app) {
         val s = session ?: return
         try {
             val n = s.project.approveSpec(_ui.value.draftText)
+            log("forge.approve_spec", "use_case" to s.def.id, "version" to n)
             _ui.update { it.copy(deltas = null, draftNotes = emptyList()) }
             val plan = s.project.resetPlan() // a new spec means a new example plan
             refresh(); _ui.update { it.copy(draftText = it.specText, plan = plan) }
@@ -289,6 +291,7 @@ class ForgeViewModel(app: Application) : AndroidViewModel(app) {
             try {
                 val (_, report) = withContext(Dispatchers.Default) { s.cropForge(headId).train() }
                 _ui.update { it.copy(reports = it.reports + (headId to report)) }
+                log("forge.train", "use_case" to s.def.id, "head" to headId, "version" to report.headVersion, "ms" to report.trainMillis, "parent" to report.parentSha256.take(12), "trained" to report.trainedWeightsSha256.take(12))
                 msg("Trained ${headId} v${report.headVersion} (${report.trainMillis} ms). Approve it to use it.")
             } catch (e: Exception) { err("Train refused: ${e.message}") }
             _ui.update { it.copy(busy = false) }
@@ -342,6 +345,7 @@ class ForgeViewModel(app: Application) : AndroidViewModel(app) {
             try {
                 val r = withContext(Dispatchers.IO) { s.exportPack() }
                 _ui.update { it.copy(export = r) }
+                log("forge.export", "use_case" to s.def.id, "pack_sha256" to r.manifest.packSha256, "warnings" to r.warnings.size)
                 msg("Exported ${r.file.name}")
             } catch (e: Exception) { err("Export failed: ${e.message}") }
             _ui.update { it.copy(busy = false) }
@@ -395,6 +399,7 @@ class ForgeViewModel(app: Application) : AndroidViewModel(app) {
                 item.stepId?.takeIf { item.kind != com.application.sensorforge.sdk.forge.PlanKind.GOOD }?.let { listOf(it) } ?: emptyList(),
                 java.time.Instant.now().toString(), timeline),
         )
+        log("forge.save_live", "use_case" to s.def.id, "item" to itemId, "split" to split.name, "verdict_expected" to label.expected.name)
         refresh(); msg("Saved live run to '${item.title}' (${split.name.lowercase()}).")
     }
 }

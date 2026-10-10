@@ -69,6 +69,12 @@ object SensorForge {
     /** Guided setup (Describe, Plan, Capture, Train, Test, Export, Import) for one use case. */
     fun forge(context: Context, useCaseId: String) = com.application.sensorforge.sdk.runtime.ForgeSession.forId(context, useCaseId)
 
+    /** Built-in plus developer-forged use cases ("Forge new verifier"). */
+    fun useCases(context: Context) = com.application.sensorforge.sdk.runtime.CustomUseCases.all(context)
+    fun useCase(context: Context, id: String) = com.application.sensorforge.sdk.runtime.CustomUseCases.byId(context, id)
+    fun createUseCase(context: Context, title: String, sentence: String) = com.application.sensorforge.sdk.runtime.CustomUseCases.create(context, title, sentence)
+    fun deleteUseCase(context: Context, id: String) = com.application.sensorforge.sdk.runtime.CustomUseCases.delete(context, id)
+
     /** Opens a `.sfpkg` and reports a typed outcome (hash, models.lock check). */
     fun openPack(context: Context, file: File) = com.application.sensorforge.sdk.runtime.ForgeSession.openPack(context, file)
 

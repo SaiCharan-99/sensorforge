@@ -127,7 +127,7 @@ class ModelRegistry private constructor(private val context: Context) {
     companion object {
         @Volatile private var instance: ModelRegistry? = null
         fun get(context: Context): ModelRegistry = instance ?: synchronized(this) {
-            instance ?: ModelRegistry(context.applicationContext).also { instance = it; BackendLog.init(context) }
+            instance ?: ModelRegistry(context.applicationContext).also { instance = it; BackendLog.init(context); SessionLog.init(context) }
         }
     }
 }

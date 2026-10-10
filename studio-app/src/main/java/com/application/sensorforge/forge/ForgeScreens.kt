@@ -350,6 +350,7 @@ private fun TrainPage(vm: ForgeViewModel, ui: ForgeUi, cg: CrashGuardViewModel) 
         return
     }
     InfoCard("Training changes real weights (hashes shown before and after). Threshold tuning is calibration and lives in Test.")
+    if (def.heads.isEmpty()) InfoCard("This verifier has no trainable head: object classes come from tagged props and the spec decides the verdict. Nothing to train; go on to Test.")
     def.heads.forEach { h ->
         if (h.capture == CaptureKind.IMU) {
             val model by cg.modelUi.collectAsState()

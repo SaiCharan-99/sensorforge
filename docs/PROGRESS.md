@@ -3,11 +3,11 @@
 Phases 0–3 followed tech spec §30. From Phase 4 the plan is **build-first** (user decision, see "Build-first plan"): build every feature and model slot (4–9), then data, training and acceptance (10), then rehearsal (11).
 If time runs out, the spec's cut order still applies: Laya → RelateAnything → local LLM → HandoverProof → RepRight.
 
-**Current stage:** Stage A (build), A1–A3 done; **next A4** (studio shell). Runbook: `docs/WORKFLOW.md`, trigger `build all`.
-**Last updated:** 2026-10-10 (A3 done; resume with `continue build` at A4)
+**Current stage:** Stage A (build), A1–A4 done; **next A5** (PackCheck complete). Runbook: `docs/WORKFLOW.md`, trigger `build all`.
+**Last updated:** 2026-10-10 (A4 done; resume with `continue build` at A5)
 
 ## Session handoff (read this first in a new session)
-- **Last session:** A3 done 2026-10-10 (guided Forge flow, see A3 log). Next: A4 studio shell (S01 home incl. "Forge new verifier", S16/S17/S18, session JSONL logs).
+- **Last session:** A3 done 2026-10-10 (guided Forge flow, see A3 log). Next: A5 PackCheck complete (M1 detector chain, M2 embedder + H1, coaching, moved into the guided flow).
 - **Code so far:** `sf-sdk/.../sdk/contracts/`, `engine/` (`VerifyEngine`), `detect/`, `train/` (`HeadTrainer`, `HeadStore`), `sensors/`, **`perception/`** (pure: `Tags` payload grammar `SF1|OBJ|cls|code`, `SF1|ZONE|zone|i`, `SF1|FLOOR|zone`, `SF1|STATE|cls|state`; `Tracker`; `TimelineBuilder`; `Coach`; `CropEmbedding`), **`camera/`** (Android: `TagFrameReader` ZXing + quality + embeddings, `CameraVerifier`, `IdentityForge`). Public API in `sdk/SensorForge.kt` (`load`, `identityForge`, `TagSheet`) and `sdk/Verifier.kt` (`Verifier`, `VerifierEvent`, `VerifierResult`, `PackInfo`). `load()` takes a spec JSON path (`asset:` or file) until `.sfpkg` lands. `VerifierResult.receiptPath` is null until Phase 4 receipts. `PurityTest` covers contracts/engine/detect/train/perception.
 - **studio-app:** router: Home (tiles) → UseCase → Forge (7 steps) / Run; Camera diagnostics. PackCheck = `packcheck/PackCheckViewModel.kt` + `PackCheckScreens.kt` (public API only).
 - **Tests:** `./gradlew :sf-sdk:test` (68 pass); instrumented: `./gradlew :studio-app:connectedDebugAndroidTest` (**uninstalls the app afterwards, which wipes recordings, heads and incidents**). Golden timelines `fixtures/timelines/`, specs `fixtures/specs/`, printable tags `fixtures/tags/`.
@@ -198,9 +198,18 @@ _Filled during the run._
 - PackCheck Run screen generalised (`PackCheckViewModel.configure(path, title, params)`), so SealSafe runs the same screen from its exported pack; the H1 card is now in Train.
 - Share via FileProvider (`file_paths.xml`).
 - Device run (SealSafe): plan accepted → filled with simulated examples → H2 trained (218/218 params changed, hash changed) → approved → Test: no false accepts on 55 examples → exported `sealsafe-v1-99a8f624.sfpkg` → Import: hash ok, stack ok → Run live opens. CrashGuard: Plan → fill → Train shows ModelCard.
-**Deferred:** custom "Forge new verifier" use cases (needs stored defs; built with the S01 home in A4). Video clip import → A5.
+**Deferred:** video clip import → A5.
 **Notes:** video clip import needs a bitmap path in perception (do in A5). Python edits must use `encoding='utf-8'` (a cp1252 write once corrupted `SensorForge.kt`; fixed).
 
 ## Blockers
 - SealSafe needs `state_change AFTER param start_time` (tech spec Part F) but §6 defines no AFTER/param constraint. Proposed `AFTER_PARAM` in Phase 4; the user must confirm.
 - Model files: MediaPipe pose/hands/embedder/EfficientDet-Lite2 downloaded (model stack §10). YOLOE (AGPL, AI Hub export), RelateAnything + DINOv3 weights (licence check), Qwen3-4B/SmolLM2 Genie bundles (large) and Laya (no source in the spec) need the user to obtain or approve them. Fallbacks per model stack §7 keep the app working without them. Runtime decided: LiteRT + QNN.
+
+## A4 log
+- Home (S01): tiles for built-in + custom use cases, **Forge new verifier** (name + sentence → `CustomUseCases.create`: template-compiled spec, same guided flow, tagged-prop perception, no head), links to Backend log, Settings, Camera diagnostics.
+- `sdk/runtime/CustomUseCases` (persisted in `files/forge/custom.json`), `SensorForge.useCases/useCase/createUseCase/deleteUseCase`.
+- S17 `BackendLogScreen`: measured runs from `BackendLog` (runtime/provider/backend/cold/warm p50-p95, offline counts), airplane badge, every model-stack slot with status/licence/size/hash/fallback claim.
+- S18 `SettingsScreen`: real Android permission state per sensor (camera, location, motion; microphone never requested), retention text, face blur honestly "off", delete-all (forge, heads, verify, crashguard, logs, tags).
+- `sdk/runtime/SessionLog`: `files/logs/session-<date>.jsonl` (forge approve/train/export/save_live, verify.result, crashguard.*). Summaries only.
+- S16 receipt already shown from the verify result (A2).
+- Device-verified: custom "Pill box" verifier created → plan → simulated → test (27 examples, no false accepts) → exported; backend log and settings render; session log line written.
