@@ -6,18 +6,30 @@ package com.application.sensorforge.sdk.perception
  * Pure Kotlin: input was letterboxed to a square [size] image with [padX]/[padY] pixels of padding.
  */
 object YoloDecode {
+    /** Read access to the flat output without copying it (the prompt-free head is ~16M floats). */
+    fun interface Src { fun at(i: Int): Float }
+
     fun decode(
         out: FloatArray, channels: Int, n: Int, classes: List<String>,
         padX: Float, padY: Float, scale: Float, imgW: Int, imgH: Int,
-        scoreThreshold: Float = 0.35f, iou: Float = 0.5f, maxResults: Int = 10,
+        scoreThreshold: Float = 0.35f, iou: Float = 0.5f, maxResults: Int = 10, agnostic: Boolean = false,
     ): List<Detection> {
-        require(out.size >= channels * n && channels >= 4 + classes.size)
+        require(out.size >= channels * n)
+        return decode(Src { out[it] }, channels, n, classes, padX, padY, scale, imgW, imgH, scoreThreshold, iou, maxResults, agnostic)
+    }
+
+    fun decode(
+        out: Src, channels: Int, n: Int, classes: List<String>,
+        padX: Float, padY: Float, scale: Float, imgW: Int, imgH: Int,
+        scoreThreshold: Float = 0.35f, iou: Float = 0.5f, maxResults: Int = 10, agnostic: Boolean = false,
+    ): List<Detection> {
+        require(channels >= 4 + classes.size)
         val cand = mutableListOf<Detection>()
         for (i in 0 until n) {
             var best = -1; var bs = scoreThreshold
-            for (c in classes.indices) { val s = out[(4 + c) * n + i]; if (s >= bs) { bs = s; best = c } }
+            for (c in classes.indices) { val s = out.at((4 + c) * n + i); if (s >= bs) { bs = s; best = c } }
             if (best < 0) continue
-            val cx = out[i]; val cy = out[n + i]; val w = out[2 * n + i]; val h = out[3 * n + i]
+            val cx = out.at(i); val cy = out.at(n + i); val w = out.at(2 * n + i); val h = out.at(3 * n + i)
             val l = ((cx - w / 2 - padX) / scale / imgW).coerceIn(0f, 1f)
             val t = ((cy - h / 2 - padY) / scale / imgH).coerceIn(0f, 1f)
             val r = ((cx + w / 2 - padX) / scale / imgW).coerceIn(0f, 1f)
@@ -26,7 +38,7 @@ object YoloDecode {
         }
         val keep = mutableListOf<Detection>()
         for (d in cand.sortedByDescending { it.confidence }) {
-            if (keep.none { it.cls == d.cls && overlap(it.box, d.box) > iou }) keep += d
+            if (keep.none { (agnostic || it.cls == d.cls) && overlap(it.box, d.box) > iou }) keep += d
             if (keep.size >= maxResults) break
         }
         return keep

@@ -17,7 +17,12 @@ import java.io.File
 import java.nio.FloatBuffer
 
 /** M1 primary: YOLOE-11S (fixed vocabulary, ONNX export) on ONNX Runtime. NNAPI first, then CPU; the one used is logged. */
-class OrtYoloDetector(context: Context, model: File, private val classes: List<String> = CLASSES, private val scoreThreshold: Float = 0.25f) : Detector {
+class OrtYoloDetector(
+    context: Context, model: File, private val classes: List<String> = CLASSES, private val scoreThreshold: Float = 0.25f,
+    /** Class-agnostic NMS and up to [maxResults] boxes: used for the prompt-free "box everything" proposer. */
+    private val agnostic: Boolean = false, private val maxResults: Int = 10,
+) : Detector {
+    private val modelName = model.name
     private val env = OrtEnvironment.getEnvironment()
     private lateinit var session: OrtSession
     override var backend: String = "none"; private set
@@ -47,12 +52,12 @@ class OrtYoloDetector(context: Context, model: File, private val classes: List<S
                 try {
                     val s = open(model, ep)
                     session = s; backend = ep
-                    BackendLog.record("yoloe-11s-seg.onnx", RUNTIME, "execution provider", ep, "letterbox ${size}x$size", "load", (SystemClock.elapsedRealtimeNanos() - t0) / 1e6)
+                    BackendLog.record(modelName, RUNTIME, "execution provider", ep, "letterbox ${size}x$size", "load", (SystemClock.elapsedRealtimeNanos() - t0) / 1e6)
                     detect(blank)
                     val t1 = SystemClock.elapsedRealtimeNanos()
                     detect(blank); detect(blank)
                     val ms = (SystemClock.elapsedRealtimeNanos() - t1) / 2e6
-                    BackendLog.record("yoloe-11s-seg.onnx", RUNTIME, "execution provider", ep, "blank 640x480", "warm", ms)
+                    BackendLog.record(modelName, RUNTIME, "execution provider", ep, "blank 640x480", "warm", ms)
                     timed += Triple(ep, s, ms)
                 } catch (e: Throwable) { Log.w(TAG, "execution provider $ep unavailable: ${e.message}") }
             }
@@ -61,7 +66,7 @@ class OrtYoloDetector(context: Context, model: File, private val classes: List<S
             backend = best.first
             best.second
         }
-        meter = LatencyMeter("yoloe-11s-seg.onnx", RUNTIME, "execution provider", backend, "letterbox ${size}x$size")
+        meter = LatencyMeter(modelName, RUNTIME, "execution provider", backend, "letterbox ${size}x$size")
     }
 
     override fun detect(upright: Bitmap): List<Detection> {
@@ -84,8 +89,8 @@ class OrtYoloDetector(context: Context, model: File, private val classes: List<S
                 val t = res[0] as OnnxTensor
                 val shape = t.info.shape
                 val ch = shape[1].toInt(); val n = shape[2].toInt()
-                val fb = t.floatBuffer; val out = FloatArray(fb.remaining()); fb.get(out)
-                YoloDecode.decode(out, ch, n, classes, padX, padY, scale, upright.width, upright.height, scoreThreshold)
+                val fb = t.floatBuffer
+                YoloDecode.decode(YoloDecode.Src { fb.get(it) }, ch, n, classes, padX, padY, scale, upright.width, upright.height, scoreThreshold, 0.5f, maxResults, agnostic)
             }
         }
         lastMs = (SystemClock.elapsedRealtimeNanos() - t0) / 1e6

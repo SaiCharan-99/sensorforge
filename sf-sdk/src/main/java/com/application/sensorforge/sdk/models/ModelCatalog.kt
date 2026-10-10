@@ -86,6 +86,20 @@ object ModelCatalog {
             profiles = listOf("objects"), tier = "T1", fallback = "m1_effdet_lite2", fallbackClaim = "EfficientDet-Lite2 (COCO)", priority = 30,
         ),
         ModelEntry(
+            "m1_yoloe_common", "M1", "YOLOE-11S everyday-objects proposer (129 names, ONNX, with .names file)", ModelLocation.DEVICE, "yoloe-common.onnx",
+            licence = "AGPL-3.0 (Ultralytics), hackathon only", source = "Ultralytics yoloe-11s-seg.pt, exported by tools/yoloe/export_common.py",
+            expectedSha256 = "8cd42729ca0ea8a204fdd489addf48e967254ed4c8c76726525170d62932096d",
+            runtime = "ONNX Runtime Android 1.22.0", expectedBackend = "CPU", apps = listOf("SceneCheck"),
+            profiles = listOf("objects"), tier = "T2", fallback = "m1_yoloe_pf", fallbackClaim = "prompt-free detector", priority = 4,
+        ),
+        ModelEntry(
+            "m1_yoloe_pf", "M1", "YOLOE-11S prompt-free (boxes every object; ONNX, with .names file)", ModelLocation.DEVICE, "yoloe-11s-seg-pf.onnx",
+            licence = "AGPL-3.0 (Ultralytics), hackathon only", source = "Ultralytics yoloe-11s-seg-pf.pt, exported by tools/yoloe/export_pf.py",
+            expectedSha256 = "6de0ffcd411a6d6911bbe36c5b2889664c656f6e1e4470057e6c08f89a1077d3",
+            runtime = "ONNX Runtime Android 1.22.0", expectedBackend = "CPU", apps = listOf("SceneCheck"),
+            profiles = listOf("objects"), tier = "T2", fallback = "m1_yoloe_11s", fallbackClaim = "fixed-vocabulary detector", priority = 5,
+        ),
+        ModelEntry(
             "m1_effdet_lite2", "M1", "EfficientDet-Lite2 float32 (COCO)", ModelLocation.ASSET, "models/efficientdet_lite2.tflite",
             "ad2abbf2b4e10585e15176fd7b5ef03c28dda959ae26fc142549fdd1814db91d", 23_096_891,
             "Apache-2.0", "storage.googleapis.com/mediapipe-models", "MediaPipe Tasks 0.10.21 (TFLite)", "GPU → CPU",
