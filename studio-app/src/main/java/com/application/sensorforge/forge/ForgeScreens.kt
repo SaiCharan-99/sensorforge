@@ -384,7 +384,10 @@ private fun TrainPage(vm: ForgeViewModel, ui: ForgeUi, cg: CrashGuardViewModel) 
                 Text("Embedding: handcrafted YUV histogram (M2 encoder not installed: fallback). Trained on this phone, CPU.", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
                 items.forEach { Mono("${it.item.headClass}: ${it.dev} dev · ${it.heldOut} held-out (min ${it.item.minCount})") }
                 if (gate.isNotEmpty()) Text("Needs: " + gate.joinToString("; ") { "${it.item.headClass} ${it.dev}/${it.item.minCount}" }, color = SfTheme.colors.unverified.content)
-                PrimaryButton(if (ui.busy) "Training…" else "Train ${h.slot}", enabled = !ui.busy && gate.isEmpty()) { vm.trainCrop(h.headId) }
+                val removed = h.classes.filter { c -> items.none { it.item.headClass == c } }
+                Text("Optional. ${h.slot} learns small image crops (genuine vs look-alike), captured under Capture → crop items. Your recorded videos feed the verification runs, not this head. Without it the QR tag decides the class.", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+                if (removed.isNotEmpty()) InfoCard("${h.slot} can't train: ${removed.joinToString()} was removed from the plan, and it needs every class. Skipping it is fine; go on to Test. Reset the plan to bring it back.")
+                PrimaryButton(if (ui.busy) "Training…" else "Train ${h.slot}", enabled = !ui.busy && gate.isEmpty() && removed.isEmpty()) { vm.trainCrop(h.headId) }
                 report?.let { r ->
                     Text("Version v${r.headVersion} · ${r.trainMillis} ms on ${r.trainingBackend} · best epoch ${r.bestEpoch}", style = MaterialTheme.typography.bodyMedium)
                     Text("train ${r.trainSamples} · val ${r.valSamples} · held-out ${r.heldOutSamples} · changed ${r.changedParameterCount}/${r.parameterCount}", style = MaterialTheme.typography.bodyMedium)
