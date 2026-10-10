@@ -10,6 +10,7 @@ import androidx.camera.view.PreviewView
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -154,6 +155,13 @@ class SceneViewModel(app: Application) : AndroidViewModel(app) {
             session = if (it.session.isEmpty()) "s${System.currentTimeMillis()}" else it.session) }
     }
 
+    /** A box the developer drew by hand (the detector missed the object). Normalised 0..1. */
+    fun addDrawn(l: Float, t: Float, rr: Float, b: Float) {
+        val box = BBox(minOf(l, rr).coerceIn(0f, 1f), minOf(t, b).coerceIn(0f, 1f), maxOf(l, rr).coerceIn(0f, 1f), maxOf(t, b).coerceIn(0f, 1f))
+        if (box.r - box.l < 0.03f || box.b - box.t < 0.03f) return
+        _ui.update { it.copy(frameProps = it.frameProps + Detection("object", box, 1.0), selected = it.frameProps.size) }
+    }
+
     fun newSession() = _ui.update { it.copy(session = "s${System.currentTimeMillis()}") }
     fun select(i: Int?) = _ui.update { it.copy(selected = i) }
     fun resume() = _ui.update { it.copy(frame = null, selected = null) }
@@ -277,7 +285,9 @@ private fun LabelTab(vm: SceneViewModel, ui: SceneViewModel.Ui) {
             Boxes(ui.liveProps.mapIndexed { i, d -> Triple(d.box, "${d.cls} ${(d.confidence * 100).toInt()}", PALETTE[i % PALETTE.size]) })
         }
         if (ui.live) Mono("${ui.liveProps.size} box(es) · ${"%.0f".format(ui.frameMs)} ms per frame")
-        PrimaryButton("Capture frame to label", enabled = ui.live && ui.liveProps.isNotEmpty()) { vm.capture() }
+        PrimaryButton("Capture frame to label", enabled = ui.live && ui.frameMs > 0) { vm.capture() }
+        if (ui.live && ui.frameMs == 0.0) Text("Waiting for the first frame… if this stays, the lens may be covered or too dark.", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+        else if (ui.live && ui.liveProps.isEmpty()) Text("No boxes found, but you can still capture and draw the boxes yourself.", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
     } else {
         Box(Modifier.fillMaxWidth().aspectRatio(9f / 16f).background(Color.Black, RoundedCornerShape(12.dp))) {
             Image(frame.asImageBitmap(), null, Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
@@ -285,7 +295,24 @@ private fun LabelTab(vm: SceneViewModel, ui: SceneViewModel.Ui) {
                 val named = ui.labelled[i]
                 Triple(d.box, named ?: "${i + 1}: ${d.cls}", if (named != null) Color(0xFF1E7A46) else PALETTE[i % PALETTE.size])
             }, highlight = ui.selected)
-            Box(Modifier.fillMaxSize().pointerInput(ui.frameProps) {
+            var dragStart by remember { mutableStateOf<Offset?>(null) }
+            var dragNow by remember { mutableStateOf<Offset?>(null) }
+            Canvas(Modifier.fillMaxSize()) {
+                val a = dragStart; val b = dragNow
+                if (a != null && b != null) drawRect(Color.Yellow, Offset(minOf(a.x, b.x), minOf(a.y, b.y)), Size(kotlin.math.abs(a.x - b.x), kotlin.math.abs(a.y - b.y)), style = Stroke(5f))
+            }
+            Box(Modifier.fillMaxSize().pointerInput(ui.frameProps.size) {
+                detectDragGestures(
+                    onDragStart = { dragStart = it; dragNow = it },
+                    onDrag = { c, _ -> dragNow = c.position },
+                    onDragEnd = {
+                        val a = dragStart; val b = dragNow
+                        if (a != null && b != null) vm.addDrawn(a.x / size.width, a.y / size.height, b.x / size.width, b.y / size.height)
+                        dragStart = null; dragNow = null
+                    },
+                    onDragCancel = { dragStart = null; dragNow = null },
+                )
+            }.pointerInput(ui.frameProps) {
                 detectTapGestures { p ->
                     val x = p.x / size.width; val y = p.y / size.height
                     val hit = ui.frameProps.withIndex().filter { (_, d) -> x in d.box.l..d.box.r && y in d.box.t..d.box.b }
@@ -295,7 +322,7 @@ private fun LabelTab(vm: SceneViewModel, ui: SceneViewModel.Ui) {
             })
         }
         val sel = ui.selected
-        if (sel == null) Text("Tap a box to name it. ${ui.labelled.size} of ${ui.frameProps.size} named in this frame.", style = MaterialTheme.typography.bodyMedium)
+        if (sel == null) Text("Tap a box to name it, or drag on the picture to draw your own box. ${ui.labelled.size} of ${ui.frameProps.size} named in this frame.", style = MaterialTheme.typography.bodyMedium)
         else {
             var text by remember(sel) { mutableStateOf(ui.frameProps[sel].cls.replace(' ', '_')) }
             SfCard {
