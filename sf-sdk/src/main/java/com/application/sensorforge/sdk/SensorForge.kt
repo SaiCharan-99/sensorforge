@@ -44,7 +44,7 @@ object SensorForge {
         return CameraVerifier(context, spec, info, head, File(app.filesDir, "verify/${spec.procedureId}"), lists)
     }
 
-    /** Receipt (tech spec ง24) read back from disk: fields for S16 and the recomputed validity. */
+    /** Receipt (tech spec ยง24) read back from disk: fields for S16 and the recomputed validity. */
     data class ReceiptView(val fields: List<Pair<String, String>>, val verification: com.application.sensorforge.sdk.pack.ReceiptVerification, val json: String)
 
     /** Verifies `receipt.json` (and the neighbouring `timeline.json`, if present) from the stored bytes. */
@@ -60,7 +60,17 @@ object SensorForge {
 
     /** Identity head (H1) authoring for a procedure: capture labelled crops, train, approve. */
     fun identityForge(context: Context, procedureId: String, tagClass: String, classes: List<String>) =
-        com.application.sensorforge.sdk.camera.IdentityForge(context, procedureId, tagClass, classes)
+        com.application.sensorforge.sdk.camera.IdentityForge(context, identityHeadId(procedureId), tagClass, classes)
+
+    /** Crop head (H1/H2) authoring by head id, e.g. `state_sealsafe`. */
+    fun cropHeadForge(context: Context, headId: String, tagClass: String, classes: List<String>) =
+        com.application.sensorforge.sdk.camera.IdentityForge(context, headId, tagClass, classes)
+
+    /** Guided setup (Describe, Plan, Capture, Train, Test, Export, Import) for one use case. */
+    fun forge(context: Context, useCaseId: String) = com.application.sensorforge.sdk.forge.ForgeSession.forId(context, useCaseId)
+
+    /** Opens a `.sfpkg` and reports a typed outcome (hash, models.lock check). */
+    fun openPack(context: Context, file: File) = com.application.sensorforge.sdk.forge.ForgeSession.openPack(context, file)
 
     private fun activeHead(context: Context, id: String): Head? {
         val store = HeadStore(headsDir(context), id)

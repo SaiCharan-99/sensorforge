@@ -2,6 +2,8 @@ package com.application.sensorforge.ui
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -189,3 +191,84 @@ fun ReceiptView(path: String?, onBack: (() -> Unit)? = null) {
         onBack?.let { SecondaryButton("Back", onClick = it) }
     }
 }
+
+/** Typed error with fix hint and one action (design.md ErrorCard). */
+@Composable
+fun ErrorCard(type: String, hint: String, actionLabel: String? = null, onAction: (() -> Unit)? = null) {
+    val c = SfTheme.colors.fail
+    Column(
+        Modifier.fillMaxWidth().background(c.container, RoundedCornerShape(16.dp)).border(1.dp, c.border, RoundedCornerShape(16.dp)).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text("✕ $type", style = MonoStyle, color = c.content)
+        Text(hint, style = MaterialTheme.typography.bodyLarge)
+        if (actionLabel != null && onAction != null) SecondaryButton(actionLabel, onClick = onAction)
+    }
+}
+
+@Composable
+fun InfoCard(text: String) {
+    val c = SfTheme.colors.info
+    Row(
+        Modifier.fillMaxWidth().background(c.container, RoundedCornerShape(16.dp)).border(1.dp, c.border, RoundedCornerShape(16.dp)).padding(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text("ⓘ", color = c.content)
+        Text(text, style = MaterialTheme.typography.bodyMedium)
+    }
+}
+
+/** Forge stepper (design.md): done = filled check, current = ring, upcoming = outline. Each step stays reachable. */
+@Composable
+fun ForgeStepper(steps: List<String>, current: Int, done: Set<Int>, onSelect: (Int) -> Unit) {
+    val scroll = androidx.compose.foundation.rememberScrollState()
+    Row(
+        Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).padding(horizontal = 8.dp, vertical = 8.dp)
+            .horizontalScroll(scroll),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        steps.forEachIndexed { i, name ->
+            val isCur = i == current
+            val isDone = i in done
+            val bg = when { isCur -> MaterialTheme.colorScheme.primaryContainer; isDone -> MaterialTheme.colorScheme.primary; else -> MaterialTheme.colorScheme.surface }
+            val fg = when { isCur -> MaterialTheme.colorScheme.onPrimaryContainer; isDone -> MaterialTheme.colorScheme.onPrimary; else -> TextSecondary }
+            Row(
+                Modifier.heightIn(min = 48.dp).background(bg, RoundedCornerShape(24.dp))
+                    .border(if (isCur) 2.dp else 1.dp, if (isCur) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline, RoundedCornerShape(24.dp))
+                    .clickable { onSelect(i) }.padding(horizontal = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text((if (isDone && !isCur) "✓ " else "${i + 1} ") + name, color = fg, style = MaterialTheme.typography.labelMedium)
+            }
+        }
+    }
+}
+
+@Composable
+fun Mono(text: String, modifier: Modifier = Modifier) = Text(text, style = MonoStyle, modifier = modifier)
+
+@Composable
+fun SectionTitle(text: String) = Text(text, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 4.dp))
+
+/** Verdict banner: colour + glyph + text. */
+@Composable
+fun VerdictBanner(verdict: com.application.sensorforge.sdk.engine.Verdict, firstReason: String? = null) {
+    val c = SfTheme.colors
+    val (colors, glyph) = when (verdict) {
+        com.application.sensorforge.sdk.engine.Verdict.PASS -> c.pass to "✓"
+        com.application.sensorforge.sdk.engine.Verdict.FAIL -> c.fail to "✕"
+        com.application.sensorforge.sdk.engine.Verdict.UNVERIFIED -> c.unverified to "?"
+    }
+    Column(Modifier.fillMaxWidth().background(colors.container, RoundedCornerShape(20.dp)).border(1.dp, colors.border, RoundedCornerShape(20.dp)).padding(20.dp)) {
+        Text("$glyph ${verdict.name}", style = com.application.sensorforge.ui.theme.DisplayVerdict, color = colors.content)
+        firstReason?.let { Text(it, style = MonoStyle, color = colors.content) }
+    }
+}
+
+fun statusColors(status: com.application.sensorforge.sdk.engine.StepStatus, c: com.application.sensorforge.ui.theme.SensorForgeColors) = when (status) {
+    com.application.sensorforge.sdk.engine.StepStatus.OBSERVED -> c.pass to "✓"
+    com.application.sensorforge.sdk.engine.StepStatus.ABSENT -> c.fail to "✕"
+    com.application.sensorforge.sdk.engine.StepStatus.NOT_OBSERVABLE -> c.unverified to "?"
+}
+
+fun prettyStep(id: String) = id.replace('_', ' ').replaceFirstChar { it.uppercase() }

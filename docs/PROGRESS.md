@@ -3,8 +3,8 @@
 Phases 0–3 followed tech spec §30. From Phase 4 the plan is **build-first** (user decision, see "Build-first plan"): build every feature and model slot (4–9), then data, training and acceptance (10), then rehearsal (11).
 If time runs out, the spec's cut order still applies: Laya → RelateAnything → local LLM → HandoverProof → RepRight.
 
-**Current stage:** Stage A (build), A1, A2 done; next milestone A3. Runbook: `docs/WORKFLOW.md`, trigger `build all`.
-**Last updated:** 2026-10-10
+**Current stage:** Stage A (build), A1, A2 done; **A3 in progress** (SDK side done, studio UI not started). Runbook: `docs/WORKFLOW.md`, trigger `build all`.
+**Last updated:** 2026-10-10 (A3 mid-way; resume with `continue build`)
 
 ## Session handoff (read this first in a new session)
 - **Last session:** Phase 3 done 2026-10-10 (commits `46a6c21` onward).
@@ -184,6 +184,20 @@ _Filled during the run._
 - `sdk/pack`: `Canonical` JSON + sha256, `Pack.build/open` (.sfpkg zip; pack_sha256 over canonical entries; fail-closed `PerceptionStackMismatch` on models.lock mismatch; `PackIntegrityError`), `Receipts.create/verify` (canonical, tamper = invalid). 12 JVM tests in `PackReceiptTest`.
 - `SensorForge.load()` now takes `.sfpkg` or spec JSON; `CameraVerifier` writes `receipt.json` and sets `receiptPath`; `SensorForge.readReceipt`; S16 `ReceiptView` shown from PackCheck result.
 - Export UI + Sharesheet come with A3 (Forge Export step).
+
+## A3 log (in progress, uncommitted work in the tree)
+**Done (sf-sdk, all JVM tests pass):**
+- `sdk/forge/`: `Simulator` (spec-driven SIMULATION timelines per scenario; every scenario of packcheck/sealsafe/unboxing gives the expected verdict+reason), `Plan`/`PlanBuilder` (good/bad/unclear + head items, min/target counts, held-out), `Scoring` (false accepts/rejects/wrong_kind, dev vs held-out), `Induction` (order needs >=5, requirements), `Calibration` (ok/fragile/infeasible), `Regression` (deltas + consequence), `TemplateCompiler` (show/open/close/remove/read/at most one/never/only after; pronouns), `UseCases` (PACKCHECK, SEALSAFE, CRASHGUARD defs), `ForgeProject` (file-backed spec versions, plan, config, examples, simulate, export .sfpkg), `ForgeSession` (Android facade: crop heads, export with approved heads + models.lock, `openPack` typed outcomes).
+- `SensorForge.forge(ctx, id)`, `openPack`, `cropHeadForge`; `IdentityForge` now takes a head id and has `simulate()` (SIMULATION crops, flagged in `IdentityExample.simulation`).
+- `detect/ImuSynth` (SIMULATION normal/shake/drop) + `RecordingStore.saveSimulated`; test trains H3 on them and the hash changes.
+- `studio-app/ui/Components.kt`: ErrorCard, InfoCard, ForgeStepper, VerdictBanner, SectionTitle, Mono.
+**Still to do for A3 (studio-app UI):**
+1. Router (Home, UseCase, Forge(step), Run, Receipt, ...) in `MainActivity` replacing the tab bar.
+2. `ForgeViewModel` + 7 step pages: Describe (spec cards, JSON toggle, sentence -> TemplateCompiler, save version with regression deltas), Plan (edit/accept), Capture (RUN: live record via `SensorForge.load` on the active spec path + `ForgeProject.simulate`; CROP: `cropForge`; IMU: reuse `CrashGuardViewModel`, add `ImuModel.simulate` using `ImuSynth`; held-out toggle; import timeline JSON / IMU CSV), Train, Test, Export (FileProvider share), Import (pick .sfpkg, `openPack`, run live).
+3. Generalise `PackCheckViewModel/Screens` into a per-use-case verify screen (needed for SealSafe), move the H1 card into Train.
+4. Custom use cases ("Forge new verifier") via a stored spec + meta.
+5. Then: install, simulation run, commit, tick A3.
+**Notes:** video clip import needs a bitmap path in perception (do in A5). Python edits must use `encoding='utf-8'` (a cp1252 write once corrupted `SensorForge.kt`; fixed).
 
 ## Blockers
 - SealSafe needs `state_change AFTER param start_time` (tech spec Part F) but §6 defines no AFTER/param constraint. Proposed `AFTER_PARAM` in Phase 4; the user must confirm.

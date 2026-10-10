@@ -17,6 +17,14 @@ class RecordingStore(private val root: File) {
         return Recording(session, label, heldOut, false, samples)
     }
 
+    /** Synthetic recording (rule 2): header says SIMULATION, so it can never read as LIVE. */
+    fun saveSimulated(label: String, heldOut: Boolean, session: String, samples: List<ImuSample>): Recording {
+        root.mkdirs()
+        val header = listOf("SIMULATION synthetic recording (not from a sensor)", "label=$label", "held_out=$heldOut")
+        File(root, "$session.csv").writeText(ImuReplay.toCsv(header, samples))
+        return Recording(session, label, heldOut, true, samples)
+    }
+
     fun list(): List<Recording> = root.listFiles { f -> f.extension == "csv" }.orEmpty().sortedBy { it.name }.map { f ->
         val text = f.readText()
         val meta = text.lineSequence().takeWhile { it.startsWith("#") }

@@ -12,6 +12,8 @@ class HeadStore(root: File, val headId: String) {
     private val dir = File(root, headId)
     private val json = Json { prettyPrint = true; encodeDefaults = true }
 
+    fun dirOf(version: Int) = File(dir, "v$version")
+
     fun versions(): List<Int> =
         dir.listFiles { f -> f.isDirectory && f.name.startsWith("v") }.orEmpty()
             .mapNotNull { it.name.drop(1).toIntOrNull() }.sorted()

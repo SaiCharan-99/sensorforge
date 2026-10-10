@@ -40,7 +40,7 @@ internal fun identityCrop(tagBox: BBox): BBox {
 }
 
 @Serializable
-data class IdentityExample(val x: List<Float>, val label: String, val session: String, val heldOut: Boolean)
+data class IdentityExample(val x: List<Float>, val label: String, val session: String, val heldOut: Boolean, val simulation: Boolean = false)
 
 /**
  * Identity head (H1) authoring: capture crop embeddings of a tagged object under a label
@@ -48,10 +48,10 @@ data class IdentityExample(val x: List<Float>, val label: String, val session: S
  * then train a real head (weights change, hashed) with [HeadTrainer]. Embedding is
  * [CropEmbedding] (handcrafted; no M2 encoder yet).
  */
-class IdentityForge(context: Context, procedureId: String, val tagClass: String, val classes: List<String>) {
+class IdentityForge(context: Context, val headId: String, val tagClass: String, val classes: List<String>) {
     private val app = context.applicationContext
-    val store = HeadStore(File(app.filesDir, "heads"), "identity_$procedureId")
-    private val examplesFile = File(app.filesDir, "heads/identity_$procedureId/examples.json")
+    val store = HeadStore(File(app.filesDir, "heads"), headId)
+    private val examplesFile = File(app.filesDir, "heads/$headId/examples.json")
     private val json = Json { ignoreUnknownKeys = true }
 
     fun examples(): List<IdentityExample> =
@@ -62,6 +62,31 @@ class IdentityForge(context: Context, procedureId: String, val tagClass: String,
     }
 
     fun clearExamples() { examplesFile.delete() }
+
+    fun simulatedCount() = examples().count { it.simulation }
+
+    fun clearSimulated() { save(examples().filter { !it.simulation }) }
+
+    /**
+     * SIMULATION crops: synthetic embeddings (class-specific histogram shapes + noise), never
+     * presented as live. Lets Train / Test / Export run end to end before real data exists.
+     */
+    fun simulate(label: String, count: Int, heldOut: Boolean): Int {
+        require(label in classes)
+        val idx = classes.indexOf(label)
+        val rng = java.util.Random(label.hashCode().toLong() * 31 + examples().size)
+        val session = "sim-${label}-${if (heldOut) "held" else "dev"}-${System.currentTimeMillis()}"
+        val out = List(count) {
+            val v = FloatArray(CropEmbedding.DIM) { d ->
+                val peak = ((d % CropEmbedding.BINS) - (2 + idx * 3)).toFloat()
+                (kotlin.math.exp(-(peak * peak) / 4f) + rng.nextGaussian().toFloat() * 0.05f).coerceAtLeast(0f)
+            }
+            val sum = v.sum().coerceAtLeast(1e-6f)
+            IdentityExample(v.map { it / sum }, label, session, heldOut, simulation = true)
+        }
+        save(examples() + out)
+        return out.size
+    }
 
     /**
      * Captures for [seconds] from the back camera into [previewView]; every frame where the
@@ -91,7 +116,7 @@ class IdentityForge(context: Context, procedureId: String, val tagClass: String,
                 for (c in f.codes) {
                     val tag = Tags.parse(c.text) as? Tag.Obj ?: continue
                     if (tag.cls != tagClass) continue
-                    f.embed(identityCrop(BBox.around(c.points, 1.4f)))?.let { got += IdentityExample(it.toList(), label, session, heldOut) }
+                    f.embed(identityCrop(BBox.around(c.points, 1.4f)))?.let { got += IdentityExample(it.toList(), label, session, heldOut, false) }
                 }
                 if (SystemClock.elapsedRealtime() - t0 > seconds * 1000) {
                     done = true
