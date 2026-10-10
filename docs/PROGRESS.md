@@ -3,8 +3,8 @@
 Phases 0–3 followed tech spec §30. From Phase 4 the plan is **build-first** (user decision, see "Build-first plan"): build every feature and model slot (4–9), then data, training and acceptance (10), then rehearsal (11).
 If time runs out, the spec's cut order still applies: Laya → RelateAnything → local LLM → HandoverProof → RepRight.
 
-**Current stage:** Stage A (build), A1–A9 done; **next A10** (HandoverProof). Runbook: `docs/WORKFLOW.md`, trigger `build all`.
-**Last updated:** 2026-10-10 (A9 done; resume with `continue build` at A10)
+**Current stage:** Stage A (build), A1–A10 done; **next A11** (authoring models: M6 SmolLM2, M7 STT, O1 Laya). Runbook: `docs/WORKFLOW.md`, trigger `build all`.
+**Last updated:** 2026-10-10 (A10 done; resume with `continue build` at A11)
 
 ## Session handoff (read this first in a new session)
 - **Last session:** A3 done 2026-10-10 (guided Forge flow, see A3 log). Next: A5 PackCheck complete (M1 detector chain, M2 embedder + H1, coaching, moved into the guided flow).
@@ -240,3 +240,10 @@ _Filled during the run._
 - `RepRightTest` (10 tests, SIMULATION stick-figure landmarks): T-P01 valid (3 reps PASS), T-P02 too fast / partial / short hold (FAIL, named criterion), T-P03 keypoints lost (UNVERIFIED), low visibility, tree pose held PASS / never bent FAIL, determinism.
 - studio-app: home tile, therapist config card, S14 live screen (preview, skeleton, angle bar with target range, rep count, hold timer, feedback, "Meets configured criteria" wording), result screen with receipt. The thresholds live in config; no Forge flow for RepRight (nothing to train: no head), logged as a decision.
 - Device (iQOO): pose heavy on GPU, 27-70 ms warm per frame at ~14-23 fps (SF.BACKEND log); empty scene -> "No person found", Stop -> UNVERIFIED with REQUIRED_NOT_OBSERVABLE for all reps (rule 5). **Not verified:** real reps with a person (Stage D); back camera used (phone on a stand pointing at the user).
+
+## A10 log
+- Pure `sdk/handover/`: `HandoverConfig` (items, slip code, min steps, partner side, split/settle/lost), `HandoverSpecs` (template with `for_each items`: `transferred` to `customer_side`, state = item code, observes `zone:item_<code>` so each item has its own visibility window; slip `code_read` with expected code; `steps_walked` when min steps > 0; `at_location` non-required), `HandoverAnalyzer` (side zones + hand overlap, settle time, taken back, out of view; steps and location inputs).
+- `camera/HandoverVerifier` (M4 Hand Landmarker GPU then CPU through BackendLog; item/slip from QR tags `SF1|OBJ|item|<code>` / `SF1|OBJ|slip|<code>`; step counter needs ACTIVITY_RECOGNITION, location via `LocationTracker`; missing sensor => NOT_OBSERVABLE, never a pass); `SensorForge.handoverProof`; `VerifierEvent.Handover`; S15 `handover/HandoverScreen.kt` (config, printable tags, live item chips, split line, result + receipt); home tile.
+- `HandoverProofTest` (13 tests, SIMULATION): valid PASS, not handed FAIL, taken back FAIL, left frame UNVERIFIED, wrong slip FAIL, slip missing FAIL, too few steps FAIL, no step sensor UNVERIFIED, location never sole evidence, unusable frames, determinism, for_each expansion.
+- Device (iQOO): hands on GPU 38-53 ms at 17-21 fps; empty scene -> UNVERIFIED (all NOT_OBSERVABLE). **Not verified:** a real hand-over with tags (Stage D).
+- **M5 RelateAnything:** not installed (needs the user's DINOv3 licence acceptance); side zones are the declared fallback and the UI says so. No Forge flow (no head to train), same decision as RepRight.

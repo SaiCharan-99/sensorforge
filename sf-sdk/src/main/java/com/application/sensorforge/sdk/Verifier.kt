@@ -61,6 +61,9 @@ sealed interface VerifierEvent {
     /** Pose landmarks (upright normalised; null = no person) with per-point visibility and the rep/hold state (RepRight, S14). */
     data class Pose(val points: List<Pt>?, val visibility: List<Float>?, val live: com.application.sensorforge.sdk.pose.RepLive) : VerifierEvent
 
+    /** Hand landmarks (one list per hand), the side split and the per-item state (HandoverProof, S15). */
+    data class Handover(val hands: List<List<Pt>>, val splitX: Float, val partnerOnLeft: Boolean, val live: com.application.sensorforge.sdk.handover.HandoverLive) : VerifierEvent
+
     /** Backend log line (rule 4): runtime, provider, backend, latency. */
     data class Backend(val line: String) : VerifierEvent
 }

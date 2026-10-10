@@ -11,7 +11,7 @@ class PurityTest {
             .map { File(it, "sf-sdk/src/main/java/com/application/sensorforge/sdk") }
             .plus(generateSequence(File("").absoluteFile) { it.parentFile }.map { File(it, "src/main/java/com/application/sensorforge/sdk") })
             .first { it.isDirectory }
-        val offenders = listOf("contracts", "engine", "detect", "train", "perception", "pack", "models", "forge")
+        val offenders = listOf("contracts", "engine", "detect", "train", "perception", "handover", "pose", "pack", "models", "forge")
             .flatMap { File(src, it).walk().filter { f -> f.extension == "kt" }.toList() }
             .filter { f -> f.readLines().any { it.startsWith("import android") || it.startsWith("import androidx") } }
             .map { it.name }

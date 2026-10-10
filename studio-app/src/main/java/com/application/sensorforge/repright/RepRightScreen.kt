@@ -105,7 +105,7 @@ class RepRightViewModel(app: Application) : AndroidViewModel(app) {
                         is VerifierEvent.Frame -> _ui.value = _ui.value.copy(aspect = e.aspect)
                         is VerifierEvent.Live -> _ui.value = _ui.value.copy(stepsSeen = e.decision.steps.filter { it.status == StepStatus.OBSERVED }.map { it.id }.toSet())
                         is VerifierEvent.Backend -> _ui.value = _ui.value.copy(backend = e.line)
-                        is VerifierEvent.Coaching -> Unit
+                        is VerifierEvent.Coaching, is VerifierEvent.Handover -> Unit
                     }
                 }
             }

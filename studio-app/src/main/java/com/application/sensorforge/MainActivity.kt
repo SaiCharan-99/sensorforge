@@ -54,6 +54,7 @@ import com.application.sensorforge.ui.theme.TextSecondary
 class MainActivity : ComponentActivity() {
     private val crashGuard: CrashGuardViewModel by viewModels()
     private val repRight: com.application.sensorforge.repright.RepRightViewModel by viewModels()
+    private val handover: com.application.sensorforge.handover.HandoverViewModel by viewModels()
     private val packCheck: PackCheckViewModel by viewModels()
     private val forge: ForgeViewModel by viewModels()
 
@@ -99,6 +100,7 @@ class MainActivity : ComponentActivity() {
             }
             "run" -> RunScreen(id!!, parts.getOrNull(2), go)
             "repright" -> com.application.sensorforge.repright.RepRightScreen(repRight) { go("home") }
+            "handover" -> com.application.sensorforge.handover.HandoverScreen(handover) { go("home") }
             "backend" -> BackendLogScreen { go("home") }
             "settings" -> SettingsScreen({ go("home") }, { forge.close() })
             "camera" -> Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -128,6 +130,12 @@ class MainActivity : ComponentActivity() {
                 Text("Counts a physio or yoga repetition only when the configured angle, hold and tempo are met.", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
                 StatusChip("Verify · camera (pose)", SfTheme.colors.info, "◉")
                 PrimaryButton("Open RepRight") { go("repright") }
+            }
+            SfCard {
+                Text("HandoverProof", style = MaterialTheme.typography.titleMedium)
+                Text("Checks each item was handed from the partner side to the customer side, the signed slip was read and the steps walked.", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+                StatusChip("Verify · camera (hands), steps, location", SfTheme.colors.info, "◉")
+                PrimaryButton("Open HandoverProof") { go("handover") }
             }
             PrimaryButton("Forge new verifier") { showNew = true }
             SecondaryButton("Backend log") { go("backend") }
@@ -181,5 +189,5 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onResume() { super.onResume(); crashGuard.onVisible() }
-    override fun onPause() { crashGuard.onHidden(); packCheck.onHidden(); super.onPause() }
+    override fun onPause() { crashGuard.onHidden(); packCheck.onHidden(); handover.stop(); repRight.stop(); super.onPause() }
 }

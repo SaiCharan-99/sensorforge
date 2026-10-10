@@ -59,6 +59,21 @@ object SensorForge {
         return com.application.sensorforge.sdk.camera.PoseVerifier(app, config, spec, info, st.entry.file!!, File(app.filesDir, "verify/${spec.procedureId}"))
     }
 
+    /**
+     * HandoverProof: items handed from the partner side to the customer side (hands M4 + side zones),
+     * signed slip code read, steps walked, location recorded (never sole evidence).
+     * Throws [CapabilityMissing] if the Hand Landmarker model is not installed.
+     */
+    fun handoverProof(context: Context, config: com.application.sensorforge.sdk.handover.HandoverConfig): Verifier {
+        val app = context.applicationContext
+        val st = com.application.sensorforge.sdk.runtime.ModelRegistry.get(app).state("m4_hands")
+        if (!st.usable) throw CapabilityMissing("Hand model 'm4_hands' is not installed (${st.status}). HandoverProof is unavailable without it.")
+        val spec = com.application.sensorforge.sdk.handover.HandoverSpecs.of(config)
+        val specText = Contracts.json.encodeToString(com.application.sensorforge.sdk.contracts.ProcedureSpec.serializer(), spec)
+        val info = PackInfo(spec.procedureId, spec.version, spec.mode, sha256((specText + config.toString()).toByteArray()), com.application.sensorforge.sdk.handover.HandoverSpecs.STACK, spec.steps.map { it.id })
+        return com.application.sensorforge.sdk.camera.HandoverVerifier(app, config, spec, info, st.entry.file!!, File(app.filesDir, "verify/${spec.procedureId}"))
+    }
+
     /** Receipt (tech spec §24) read back from disk: fields for S16 and the recomputed validity. */
     data class ReceiptView(val fields: List<Pair<String, String>>, val verification: com.application.sensorforge.sdk.pack.ReceiptVerification, val json: String)
 
