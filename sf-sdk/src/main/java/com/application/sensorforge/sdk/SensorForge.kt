@@ -67,10 +67,10 @@ object SensorForge {
         com.application.sensorforge.sdk.camera.IdentityForge(context, headId, tagClass, classes)
 
     /** Guided setup (Describe, Plan, Capture, Train, Test, Export, Import) for one use case. */
-    fun forge(context: Context, useCaseId: String) = com.application.sensorforge.sdk.forge.ForgeSession.forId(context, useCaseId)
+    fun forge(context: Context, useCaseId: String) = com.application.sensorforge.sdk.runtime.ForgeSession.forId(context, useCaseId)
 
     /** Opens a `.sfpkg` and reports a typed outcome (hash, models.lock check). */
-    fun openPack(context: Context, file: File) = com.application.sensorforge.sdk.forge.ForgeSession.openPack(context, file)
+    fun openPack(context: Context, file: File) = com.application.sensorforge.sdk.runtime.ForgeSession.openPack(context, file)
 
     private fun activeHead(context: Context, id: String): Head? {
         val store = HeadStore(headsDir(context), id)
